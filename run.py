@@ -1,78 +1,92 @@
 from src.server import create_app
-from zeroconf import ServiceInfo, Zeroconf, IPVersion
+from zeroconf import ServiceInfo, Zeroconf
 import socket
 import threading
-import time
 
 app = create_app()
-SERVER_TYPE = "_maccontroller._tcp.local."  # Service type must start with _
+server_name = "maccontroller1.local"
 
 def get_local_ip():
-    """Reliable IP detection that works across different networks"""
+    """Get the local IP address reliably."""
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.connect(("8.8.8.8", 80))
+            s.connect(("8.8.8.8", 80))  # Connect to Google DNS
             return s.getsockname()[0]
     except Exception:
-        return socket.gethostbyname(socket.gethostname())
+        return socket.gethostbyname(socket.gethostname())  # Fallback to hostname lookup
 
-class MDNSController:
-    def __init__(self):
-        self.zeroconf = Zeroconf(ip_version=IPVersion.V4Only)
-        self.service_info = None
-        self.running = True
-        self.update_interval = 60  # Seconds between IP checks
-        
-    def register_service(self):
-        local_ip = get_local_ip()
-        hostname = socket.gethostname()
-        
-        # Correct service name format: "Instance Name._service._tcp.local."
-        service_name = f"{hostname}._maccontroller._tcp.local."
-        
-        self.service_info = ServiceInfo(
-            SERVER_TYPE,
-            service_name,
-            addresses=[socket.inet_aton(local_ip)],
-            port=app.config['SERVER_PORT'],
-            properties={"description": "MacBook Controller"},
-            server=f"{hostname}.local.",
-        )
-        
-        self.zeroconf.register_service(self.service_info, ttl=10)
-        
-    def start(self):
-        self.register_service()
-        threading.Thread(target=self._ip_monitor, daemon=True).start()
-        
-    def _ip_monitor(self):
-        """Periodically check for IP changes"""
-        last_ip = get_local_ip()
-        while self.running:
-            time.sleep(self.update_interval)
-            current_ip = get_local_ip()
-            if current_ip != last_ip:
-                print(f"IP changed from {last_ip} to {current_ip}, updating mDNS...")
-                self.zeroconf.unregister_service(self.service_info)
-                self.register_service()
-                last_ip = current_ip
-                
-    def shutdown(self):
-        self.running = False
-        self.zeroconf.unregister_all_services()
-        self.zeroconf.close()
+def register_mdns():
+    """Register the server using mDNS."""
+    local_ip = get_local_ip()
+    hostname = socket.gethostname()
+    
+    # Create zeroconf instance
+    zeroconf = Zeroconf()
+
+    # Service information
+    service_info = ServiceInfo(
+        "_http._tcp.local.",  # Service type
+        f"{hostname}._http._tcp.local.",  # Service name
+        addresses=[socket.inet_aton(local_ip)],  # IP address
+        port=app.config['SERVER_PORT'],  # Port from Flask config
+        properties={"version": "1.0", "description": "Test server"},  # Metadata
+        server=f"{server_name}.",  # Server name
+    )
+    
+    # Register service
+    zeroconf.register_service(service_info, ttl=10, allow_name_change=True)
+    print(f"Registered mDNS service: {hostname}._http._tcp.local.")
+    return zeroconf
+
+def start_udp_beacon():
+    """Start a UDP beacon to respond to discovery requests."""
+    UDP_PORT = 53535
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        sock.bind(("0.0.0.0", UDP_PORT))
+        print("UDP beacon started, waiting for discovery requests...")
+
+        while True:
+            data, addr = sock.recvfrom(1024)  # Wait for UDP messages
+            if data.decode().strip() == "DISCOVER_MACBOOK_SERVER":  # Check for discovery request
+                print("Received discovery request from:", addr)
+                response = f"{get_local_ip()}:{app.config['SERVER_PORT']}".encode()  # Respond with IP and port
+                sock.sendto(response, addr)  # Send response
+                print(f"Sent response: {response.decode()}")
+    except OSError as e:
+        print(f"Failed to start UDP beacon: {e}")
+    except Exception as e:
+        print(f"UDP beacon error: {e}")
+    finally:
+        if 'sock' in locals():
+            sock.close()
 
 if __name__ == "__main__":
-    mdns = MDNSController()
-    mdns.start()
+    # Register mDNS service
+    zeroconf = register_mdns()
+    
+    # Start UDP beacon in a background thread
+    udp_thread = threading.Thread(target=start_udp_beacon, daemon=True)
+    udp_thread.start()
     
     try:
-        print(f"Server running at: http://{get_local_ip()}:{app.config['SERVER_PORT']}")
+        # Start Flask server
+        print(f"""
+Server running at:
+- Local URL: http://{get_local_ip()}:{app.config['SERVER_PORT']}
+- mDNS Name: {server_name} (port {app.config['SERVER_PORT']})
+        """)
         app.run(
-            host='0.0.0.0',
+            host=app.config['SERVER_HOST'],
             port=app.config['SERVER_PORT'],
-            debug=app.config['DEBUG_MODE'],
-            use_reloader=False
+            debug=app.config['DEBUG_MODE']
         )
+    except KeyboardInterrupt:
+        print("Server stopped by user.")
     finally:
-        mdns.shutdown()
+        # Clean up on exit
+        zeroconf.unregister_all_services()
+        zeroconf.close()
+        print("Server stopped, mDNS service unregistered.")
