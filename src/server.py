@@ -1,6 +1,7 @@
 from flask import Flask
 from src.controllers.media_controller import media_bp
 from src.controllers.system_controller import system_bp
+from src.controllers.connections import connections_bp
 
 def create_app():
     app = Flask(__name__)
@@ -11,5 +12,6 @@ def create_app():
     # Register blueprints
     app.register_blueprint(media_bp, url_prefix='/media')
     app.register_blueprint(system_bp, url_prefix='/system')
+    app.register_blueprint(connections_bp,url_prefix="/connections")
     
     return app

@@ -2,18 +2,10 @@ from src.server import create_app
 from zeroconf import ServiceInfo, Zeroconf
 import socket
 import threading
+from src.utils.socket import get_local_ip
 
 app = create_app()
 server_name = "maccontroller1.local"
-
-def get_local_ip():
-    """Get the local IP address reliably."""
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.connect(("8.8.8.8", 80))  # Connect to Google DNS
-            return s.getsockname()[0]
-    except Exception:
-        return socket.gethostbyname(socket.gethostname())  # Fallback to hostname lookup
 
 def register_mdns():
     """Register the server using mDNS."""
@@ -45,11 +37,12 @@ def start_udp_beacon():
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        sock.bind(("0.0.0.0", UDP_PORT))
+        sock.bind(('', UDP_PORT))
         print("UDP beacon started, waiting for discovery requests...")
 
         while True:
             data, addr = sock.recvfrom(1024)  # Wait for UDP messages
+            print(data.decode().strip())
             if data.decode().strip() == "DISCOVER_MACBOOK_SERVER":  # Check for discovery request
                 print("Received discovery request from:", addr)
                 response = f"{get_local_ip()}:{app.config['SERVER_PORT']}".encode()  # Respond with IP and port
@@ -81,7 +74,8 @@ Server running at:
         app.run(
             host=app.config['SERVER_HOST'],
             port=app.config['SERVER_PORT'],
-            debug=app.config['DEBUG_MODE']
+            debug=app.config['DEBUG_MODE'],
+            # use_reloader=False  # Disable Flask's reloader
         )
     except KeyboardInterrupt:
         print("Server stopped by user.")
