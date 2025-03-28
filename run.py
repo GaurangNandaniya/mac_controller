@@ -7,7 +7,8 @@ import time
 import atexit
 
 app = create_app()
-server_name = "maccontroller1.local"
+server_name = "MacPyCTRLServer"  # mDNS server name
+service_type = "_macpyctrlserver._tcp.local."
 
 # Global variables for mDNS management
 mdns_lock = threading.Lock()
@@ -45,12 +46,12 @@ def register_mdns():
 
             # Service information
             mdns_service_info = ServiceInfo(
-                "_http._tcp.local.",  # Service type
-                f"{hostname}._http._tcp.local.",  # Service name
+                service_type,  # Service type
+                f"{server_name}.{service_type}",  # Service name
                 addresses=[socket.inet_aton(local_ip)],  # IP address
                 port=app.config['SERVER_PORT'],  # Port from Flask config
                 properties={"version": "1.0", "description": "Test server"},  # Metadata
-                server=f"{server_name}.",  # Server name
+                server=f"{socket.gethostname()}.local.",  # Server name
             )
             
             # Register service
