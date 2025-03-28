@@ -12,6 +12,7 @@ def ping():
     if request.data.decode("UTF-8")=="MAC_ADDRESS_PING":
         logger.info("MAC Address ping")
         return f"{get_local_ip()}:8080"
+    return ""
 
 
 
