@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify
 import os
 from ..utils import setup_logger
 import subprocess
+import re
 import cv2 
 import time
 from datetime import datetime
@@ -47,6 +48,19 @@ def sleep_mac():
         return jsonify({"status": "success"})
     except Exception as e:
         logger.error(f"Error in system sleep: {str(e)}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+@system_bp.route('/battery', methods=['POST'])
+def get_battery():
+    try:
+        output = subprocess.check_output(["pmset", "-g", "batt"], text=True)
+        match = re.search(r'(\d+)%', output)
+        if match:
+            return jsonify({"status": "success", "percentage": int(match.group(1))})
+        else:
+            return jsonify({"status": "error", "error": "Battery info not found"}), 500
+    except Exception as e:
+        logger.error(f"Error getting battery percentage: {str(e)}")
         return jsonify({"status": "error", "error": str(e)}), 500
 
 @system_bp.route('/keyboard-light-set/<int:level>', methods=['POST'])
