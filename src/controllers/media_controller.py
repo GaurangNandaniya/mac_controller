@@ -84,3 +84,47 @@ def toggle_mute():
     except Exception as e:
         logger.error(f"Error toggling mute: {str(e)}")
         return jsonify({"status": "error", "error": str(e)}), 500
+    
+@media_bp.route('/up', methods=['POST'])
+def arrow_up():
+    try:
+        keyboard.press(Key.up)
+        keyboard.release(Key.up)
+        logger.info("Arrow up pressed successfully")
+        return jsonify({"status": "success"})
+    except Exception as e:
+        logger.error(f"Error pressing arrow up: {str(e)}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+@media_bp.route('/down', methods=['POST'])
+def arrow_down():
+    try:
+        keyboard.press(Key.down)
+        keyboard.release(Key.down)
+        logger.info("Arrow down pressed successfully")
+        return jsonify({"status": "success"})
+    except Exception as e:
+        logger.error(f"Error pressing arrow down: {str(e)}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+@media_bp.route('/left', methods=['POST'])
+def arrow_left():
+    try:
+        keyboard.press(Key.left)
+        keyboard.release(Key.left)
+        logger.info("Arrow left pressed successfully")
+        return jsonify({"status": "success"})
+    except Exception as e:
+        logger.error(f"Error pressing arrow left: {str(e)}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+@media_bp.route('/right', methods=['POST'])
+def arrow_right():
+    try:
+        keyboard.press(Key.right)
+        keyboard.release(Key.right)
+        logger.info("Arrow right pressed successfully")
+        return jsonify({"status": "success"})
+    except Exception as e:
+        logger.error(f"Error pressing arrow right: {str(e)}")
+        return jsonify({"status": "error", "error": str(e)}), 500    
