@@ -1,12 +1,20 @@
 # Mac Controller Server
 
-A Flask-based server that provides remote control capabilities for your Mac, including media control, system management, and security features.
+A dual-implementation server (Python/Flask and Rust/Actix) providing remote control capabilities for your Mac, including media control, system management, and security features.
 
 ## Prerequisites
+
+### Python Implementation
 
 - Python 3.x
 - macOS operating system
 - Virtual environment (recommended)
+
+### Rust Implementation
+
+- Rust 1.65+ toolchain
+- Cargo package manager
+- macOS operating system
 
 ## Setup Instructions
 
@@ -37,6 +45,34 @@ python run.py
 ```
 
 The server will start and display the local URL and mDNS name for connection.
+
+## Rust Implementation
+
+### Building and Running
+
+1. Navigate to Rust project:
+
+```bash
+cd mac_controller_rust
+```
+
+2. Build the project:
+
+```bash
+cargo build --release
+```
+
+3. Run the server:
+
+```bash
+cargo run --release
+```
+
+The Rust server will:
+
+- Start on port 8080
+- Advertise via mDNS as `MacPyCTRLServer`
+- Log connection details to consolen
 
 ## API Endpoints
 
@@ -143,7 +179,9 @@ The server will start and display the local URL and mDNS name for connection.
 
 ## Notes
 
-- The server uses mDNS for discovery, making it accessible via the hostname `MacPyCTRLServer`
+- **Python**: Uses Flask development server with mDNS advertising
+- **Rust**: Uses Actix-web with Tokio runtime and zeroconf-based mDNS
+- Both implementations advertise via mDNS as `MacPyCTRLServer`
 - All endpoints return JSON responses with a "status" field
 - Error responses include an "error" field with the error message
 - Some endpoints require specific permissions (e.g., keyboard control, screen capture)
@@ -151,6 +189,12 @@ The server will start and display the local URL and mDNS name for connection.
 
 ## Security Considerations
 
-- The server should be run in a trusted network environment
+- Applies to both implementations:
+  - Should be run in trusted network environments
+  - System control endpoints require elevated privileges
+  - Audio/file endpoints create persistent storage in ~/Desktop/intruders/
+- Rust-specific:
+  - Compiled binary reduces attack surface vs interpreted Python
+  - Uses Rust's memory safety guarantees for critical system operations
 - Consider implementing authentication for production use
 - Be cautious with system control endpoints as they can affect your Mac's operation
