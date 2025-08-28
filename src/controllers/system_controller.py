@@ -6,11 +6,16 @@ import re
 import cv2 
 import time
 from datetime import datetime
+from src.utils.auth_manager import AuthManager
+
+# Initialize authentication
+auth_manager = AuthManager()
 
 logger = setup_logger()
 
 
 system_bp = Blueprint('system', __name__)
+system_bp.before_request(auth_manager.auth_middleware())
 
 @system_bp.route('/lock', methods=['POST'])
 def lock_screen():

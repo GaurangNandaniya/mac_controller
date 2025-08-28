@@ -8,10 +8,15 @@ import pyaudio
 import threading
 import numpy as np
 import wave
+from src.utils.auth_manager import AuthManager
+
+# Initialize authentication
+auth_manager = AuthManager()
 
 logger = setup_logger()
 
 alerts_bp = Blueprint('alerts', __name__)
+alerts_bp.before_request(auth_manager.auth_middleware())
 
 @alerts_bp.route('/upload/audio', methods=['POST'])
 def handle_audio_upload():

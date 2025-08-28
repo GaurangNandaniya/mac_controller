@@ -2,10 +2,15 @@ from flask import Blueprint, jsonify
 from pynput.keyboard import Key, Controller
 from ..utils import setup_logger
 import os
+from src.utils.auth_manager import AuthManager
+
+# Initialize authentication
+auth_manager = AuthManager()
 
 logger = setup_logger()
 
 media_bp = Blueprint('media', __name__)
+media_bp.before_request(auth_manager.auth_middleware())
 keyboard = Controller()
 
 @media_bp.route('/play-pause', methods=['POST'])

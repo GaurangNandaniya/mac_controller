@@ -1,6 +1,6 @@
 import threading
 import webbrowser
-import rumps
+import rumps #https://rumps.readthedocs.io/en/latest/index.html
 import atexit
 import signal
 import warnings
@@ -9,6 +9,7 @@ from src.server import create_app
 from zeroconf import ServiceInfo, Zeroconf
 import socket
 from src.utils.socket import get_local_ip
+from src.utils.auth_manager import AuthManager
 
 # Suppress the specific resource_tracker warning
 warnings.filterwarnings("ignore", 
@@ -85,19 +86,23 @@ class MacPyCtrlMenuBar(rumps.App):
         # Create menu items with keys for easy access
         self.start_item = rumps.MenuItem("🟢 Start Server", callback=self.start_server)
         self.stop_item = rumps.MenuItem("🔴 Stop Server", callback=self.stop_server)
-        self.browser_item = rumps.MenuItem("🌐 Open in Browser", callback=self.open_browser)
+        # self.browser_item = rumps.MenuItem("🌐 Open in Browser", callback=self.open_browser)
         self.status_item = rumps.MenuItem("ℹ️ Server Status", callback=None)
         self.ip_item = rumps.MenuItem("📡 IP Address", callback=None)
-        
+        # self.test_token = rumps.MenuItem("📡 get token", callback=self.alert_test_token)
+        self.qr_item = rumps.MenuItem("QR Code", callback=self.open_qr_page)
+
         # Define menu with key-based items
         self.menu = [
             self.start_item,
             self.stop_item,
             None,  # separator
-            self.browser_item,
-            None,  # separator
+            # self.browser_item,
+            self.qr_item,
+            # None,  # separator
             self.status_item,
             self.ip_item,
+            # self.test_token
         ]
         
         # Set initial state of the server
@@ -113,6 +118,11 @@ class MacPyCtrlMenuBar(rumps.App):
         self.auto_start_timer = threading.Timer(1.0, self.start_server_auto)
         self.auto_start_timer.daemon = True
         self.auto_start_timer.start()
+        print(f"""
+Server running at:
+- Local URL: http://{get_local_ip()}:{self.app.config['SERVER_PORT']}
+- mDNS Name: {self.server_name} (port {self.app.config['SERVER_PORT']})
+        """)
 
     def start_server_auto(self):
         """
@@ -125,7 +135,17 @@ class MacPyCtrlMenuBar(rumps.App):
             # Call start_server with None as sender since it's auto-start, not user-initiated
             self.start_server(None)        
 
-    def update_status(self, status, icon=None):
+    def alert_test_token(self, sender):
+        auth_obj = AuthManager(self.app)
+        token=auth_obj.generate_permanent_token("1","Local")
+        print(token)
+        rumps.alert(f"Token: {auth_obj.generate_permanent_token("1","Local")}")
+
+    def open_qr_page(self, sender):
+        """Open the QR authentication page in browser"""
+        webbrowser.open(f"http://localhost:{self.app.config['SERVER_PORT']}/auth/qr")
+
+    def update_status(self, status=None, icon=None):
         """
         Update the menu bar status display and information items.
         
@@ -137,7 +157,8 @@ class MacPyCtrlMenuBar(rumps.App):
             self.title = f"{icon}"  # Set menu bar icon
         
         # Update status item using key-based access
-        self.status_item.title = f"ℹ️ Status: {status}"
+        if status:
+            self.status_item.title = f"ℹ️ Status: {status}"
         
         try:
             # Try to get and display the current IP address
@@ -165,6 +186,7 @@ class MacPyCtrlMenuBar(rumps.App):
             # Get fresh network info and register new service
             try:
                 local_ip = get_local_ip()
+                self.update_status() # updating IP in menu as well
                 hostname = socket.gethostname()
                 
                 # Create a new Zeroconf instance for service registration
