@@ -117,7 +117,6 @@ class AuthManager:
             'device_name': device_name,
             'used': False
         }
-        
         return token
     
     def validate_temp_token(self, token):
@@ -187,6 +186,7 @@ class AuthManager:
     def validate_permanent_token(self, token):
         """Validate a permanent token and return its payload if valid"""
         try:
+            # self.load_data()
             # Decode and verify token
             payload = jwt.decode(token, self.secret_key, algorithms=['HS256'])
             print("validate_permanent_token::",payload)
@@ -219,9 +219,23 @@ class AuthManager:
             return None, "Token expired"
         except jwt.InvalidTokenError:
             return None, "Invalid token"
-    
+
+    def printCurrentInstanceData(self):
+        """Print the current instance data for debugging purposes"""
+        print("\n\n")
+        print("Permanent Tokens:")
+        for device_id, token_data in self.permanent_tokens.items():
+            print(f"  {device_id}: {token_data}")
+        print("Connected Devices:")
+        for device_id, device_data in self.connected_devices.items():
+            print(f"  {device_id}: {device_data}")
+        print("Temp tokens:")
+        for jti, token_data in self.temp_tokens.items():
+            print(f"  {jti}: {token_data}")
+
     def can_add_device(self):
         """Check if we can add a new device based on the max devices limit"""
+        self.load_data()
         return len(self.connected_devices) < self.max_devices
     
     def revoke_device(self, device_id):
@@ -230,6 +244,14 @@ class AuthManager:
             del self.permanent_tokens[device_id]
         if device_id in self.connected_devices:
             del self.connected_devices[device_id]
+        
+        # Save to persistent storage
+        self.save_data()
+
+    def revoke_all_devices(self):
+        """Revoke all device access"""
+        self.permanent_tokens = {}
+        self.connected_devices = {}
         
         # Save to persistent storage
         self.save_data()

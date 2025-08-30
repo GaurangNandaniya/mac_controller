@@ -67,6 +67,9 @@ class MacPyCtrlMenuBar(rumps.App):
         self.app = create_app() #The main reason is to get access to your Flask app's configuration settings:
         self.server_name = "MacPyCTRLServer"
         self.service_type = "_macpyctrlserver._tcp.local."
+
+        #init auth manager for clean up devices
+        self.auth_obj = AuthManager(self.app)
         
         # mDNS service variables for zero-configuration networking
         self.mdns_zeroconf = None
@@ -86,23 +89,21 @@ class MacPyCtrlMenuBar(rumps.App):
         # Create menu items with keys for easy access
         self.start_item = rumps.MenuItem("🟢 Start Server", callback=self.start_server)
         self.stop_item = rumps.MenuItem("🔴 Stop Server", callback=self.stop_server)
-        # self.browser_item = rumps.MenuItem("🌐 Open in Browser", callback=self.open_browser)
         self.status_item = rumps.MenuItem("ℹ️ Server Status", callback=None)
         self.ip_item = rumps.MenuItem("📡 IP Address", callback=None)
-        # self.test_token = rumps.MenuItem("📡 get token", callback=self.alert_test_token)
         self.qr_item = rumps.MenuItem("QR Code", callback=self.open_qr_page)
+        self.revoke_all = rumps.MenuItem("Revoke All Devices", callback=self.revoke_all_devices)
 
         # Define menu with key-based items
         self.menu = [
             self.start_item,
             self.stop_item,
             None,  # separator
-            # self.browser_item,
             self.qr_item,
-            # None,  # separator
+            None,  # separator
             self.status_item,
             self.ip_item,
-            # self.test_token
+            self.revoke_all
         ]
         
         # Set initial state of the server
@@ -123,6 +124,10 @@ Server running at:
 - Local URL: http://{get_local_ip()}:{self.app.config['SERVER_PORT']}
 - mDNS Name: {self.server_name} (port {self.app.config['SERVER_PORT']})
         """)
+    def revoke_all_devices(self, sender):
+        """Revoke all connected devices"""
+        self.auth_obj.revoke_all_devices()
+        rumps.alert("All devices have been revoked.")
 
     def start_server_auto(self):
         """
@@ -134,12 +139,6 @@ Server running at:
             print("Auto-starting server...")
             # Call start_server with None as sender since it's auto-start, not user-initiated
             self.start_server(None)        
-
-    def alert_test_token(self, sender):
-        auth_obj = AuthManager(self.app)
-        token=auth_obj.generate_permanent_token("1","Local")
-        print(token)
-        rumps.alert(f"Token: {auth_obj.generate_permanent_token("1","Local")}")
 
     def open_qr_page(self, sender):
         """Open the QR authentication page in browser"""
@@ -354,19 +353,6 @@ Server running at:
                     self.mdns_zeroconf = None
                     self.mdns_service_info = None
 
-    def open_browser(self, sender):
-        """
-        Open the server in the default web browser.
-        Called when the user selects "Open in Browser" from the menu.
-        
-        Args:
-            sender: The menu item that triggered this action (not used)
-        """
-        if not self.is_server_running:
-            rumps.alert("Server is not running!")
-            return
-            
-        webbrowser.open(f"http://localhost:{self.app.config['SERVER_PORT']}")
 
     def cleanup(self):
         """

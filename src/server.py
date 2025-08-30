@@ -1,3 +1,4 @@
+import os
 from flask import Flask
 from src.controllers.media_controller import media_bp
 from src.controllers.system_controller import system_bp
@@ -5,10 +6,15 @@ from src.controllers.connections import connections_bp
 from src.controllers.alerts import alerts_bp
 from src.controllers.api import api_bp
 from src.controllers.qr_generator import auth_bp
+from flask_cors import CORS
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def create_app():
     app = Flask(__name__)
-    
+    CORS(app, resources={r"/*": {"origins": ["http://localhost:5173",os.getenv("WEB_APP_URL")]}})
+
     # Load config
     app.config.from_pyfile('../config.py')
 

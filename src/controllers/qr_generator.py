@@ -7,6 +7,9 @@ from src.utils.auth_manager import AuthManager
 import socket
 from config import SERVER_PORT
 import secrets
+from dotenv import load_dotenv
+import os
+load_dotenv()
 
 # Initialize authentication
 auth_manager = AuthManager()
@@ -25,7 +28,8 @@ def qr_auth_page():
     # Create the connection URL that will be encoded in the QR
     service_name = f"{socket.gethostname()}.local."
     port = SERVER_PORT
-    connection_url = f"http://{service_name}:{port}/auth/connect?token={temp_token}"
+    # connection_url = f"http://{service_name}:{port}/auth/connect?token={temp_token}"
+    connection_url = f"{os.getenv("WEB_APP_URL")}/connect?token={temp_token}&&serviceUrl=http://{service_name}:{port}"
     
     # Generate QR code
     qr = qrcode.QRCode(
@@ -82,7 +86,7 @@ def handle_qr_connection():
     
     # Generate permanent token
     perm_token = auth_manager.generate_permanent_token(
-        device_id, requestData['device_name'] or "Unknown Device"
+        device_id, requestData.get('device_name', "Unknown Device")
     )
     
     # Return a success page or redirect to the web app
