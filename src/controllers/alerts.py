@@ -8,10 +8,7 @@ import pyaudio
 import threading
 import numpy as np
 import wave
-from src.utils.auth_manager import AuthManager
-
-# Initialize authentication
-auth_manager = AuthManager()
+from src.utils.auth_manager import auth_manager
 
 logger = setup_logger()
 

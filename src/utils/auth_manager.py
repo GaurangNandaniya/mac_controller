@@ -343,3 +343,7 @@ class AuthManager:
             })
         
         return devices
+    
+
+
+auth_manager = AuthManager()

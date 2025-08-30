@@ -2,10 +2,8 @@ from flask import Blueprint, jsonify
 from pynput.keyboard import Key, Controller
 from ..utils import setup_logger
 import os
-from src.utils.auth_manager import AuthManager
+from src.utils.auth_manager import auth_manager
 
-# Initialize authentication
-auth_manager = AuthManager()
 
 logger = setup_logger()
 

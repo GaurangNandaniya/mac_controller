@@ -9,7 +9,11 @@ from src.server import create_app
 from zeroconf import ServiceInfo, Zeroconf
 import socket
 from src.utils.socket import get_local_ip
-from src.utils.auth_manager import AuthManager
+from src.utils.auth_manager import auth_manager
+from dotenv import load_dotenv
+import os
+load_dotenv()
+
 
 # Suppress the specific resource_tracker warning
 warnings.filterwarnings("ignore", 
@@ -51,7 +55,8 @@ def run_flask_server():
         host=app.config['SERVER_HOST'],
         port=app.config['SERVER_PORT'],
         debug=app.config['DEBUG_MODE'],
-        use_reloader=False  # Disable reloader to avoid subprocess issues
+        use_reloader=False,  # Disable reloader to avoid subprocess issues.
+        ssl_context=(os.getenv("CERTIFICATE_PATH"), os.getenv("PRIVATE_KEY_PATH"))
     )
 
 class MacPyCtrlMenuBar(rumps.App):
@@ -69,8 +74,8 @@ class MacPyCtrlMenuBar(rumps.App):
         self.service_type = "_macpyctrlserver._tcp.local."
 
         #init auth manager for clean up devices
-        self.auth_obj = AuthManager(self.app)
-        
+        self.auth_obj = auth_manager
+
         # mDNS service variables for zero-configuration networking
         self.mdns_zeroconf = None
         self.mdns_service_info = None
@@ -142,7 +147,7 @@ Server running at:
 
     def open_qr_page(self, sender):
         """Open the QR authentication page in browser"""
-        webbrowser.open(f"http://localhost:{self.app.config['SERVER_PORT']}/auth/qr")
+        webbrowser.open(f"https://localhost:{self.app.config['SERVER_PORT']}/auth/qr")
 
     def update_status(self, status=None, icon=None):
         """
@@ -198,7 +203,7 @@ Server running at:
                     addresses=[socket.inet_aton(local_ip)],  # IP address
                     port=self.app.config['SERVER_PORT'],  # Server port
                     properties={"version": "1.0", "description": "MacPyCtrl Server"},
-                    server=f"{hostname}.local.",  # Server hostname
+                    server=f"{hostname}.local",  # Server hostname
                 )
                 
                 # Register the service with mDNS

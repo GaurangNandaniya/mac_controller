@@ -3,7 +3,7 @@ from ..utils import setup_logger
 import io
 import base64
 import qrcode
-from src.utils.auth_manager import AuthManager
+from src.utils.auth_manager import auth_manager
 import socket
 from config import SERVER_PORT
 import secrets
@@ -11,8 +11,6 @@ from dotenv import load_dotenv
 import os
 load_dotenv()
 
-# Initialize authentication
-auth_manager = AuthManager()
 
 logger = setup_logger()
 
@@ -26,11 +24,9 @@ def qr_auth_page():
     temp_token = auth_manager.generate_temp_token()
     
     # Create the connection URL that will be encoded in the QR
-    service_name = f"{socket.gethostname()}.local."
+    service_name = f"{socket.gethostname()}.local"
     port = SERVER_PORT
-    # connection_url = f"http://{service_name}:{port}/auth/connect?token={temp_token}"
-    connection_url = f"{os.getenv("WEB_APP_URL")}/connect?token={temp_token}&&serviceUrl=http://{service_name}:{port}"
-    
+    connection_url = f"{os.getenv("WEB_APP_URL")}/connect?token={temp_token}&&serviceUrl=https://{service_name}:{port}"
     # Generate QR code
     qr = qrcode.QRCode(
         version=1,

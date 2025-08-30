@@ -51,7 +51,7 @@ def register_mdns():
                 addresses=[socket.inet_aton(local_ip)],  # IP address
                 port=app.config['SERVER_PORT'],  # Port from Flask config
                 properties={"version": "1.0", "description": "Test server"},  # Metadata
-                server=f"{socket.gethostname()}.local.",  # Server name
+                server=f"{socket.gethostname()}.local",  # Server name
             )
             
             # Register service
