@@ -16,35 +16,146 @@ A dual-implementation server (Python/Flask and Rust/Actix) providing remote cont
 - Cargo package manager
 - macOS operating system
 
-## Setup Instructions
+## Application Flow
+
+1. **Startup**:
+
+   ```bash
+   python mac_controller_app.py
+   ```
+
+   - Creates menu bar icon
+   - Auto-starts HTTPS server with certificates from `.env`
+   - Registers mDNS service for local discovery
+
+2. **First Run Setup**:
+
+   - Generate certificates using mkcert
+   - Configure `.env` file with paths to certificates
+   - Create Automator app for easy startup
+
+3. **Daily Operation**:
+   - Control via menu bar options or web interface
+   - Devices authenticate via QR code pairing
+   - All communication over encrypted HTTPS
+
+## Installation & Setup
 
 1. Clone the repository:
 
 ```bash
-git clone git@github.com:GaurangNandaniya/mac_controller.git
+git clone https://github.com/GaurangNandaniya/mac_controller.git
 cd mac_controller
 ```
 
-2. Create and activate a virtual environment:
+### Companion Web App Setup
+
+The iOS/web interface is available at:
+https://github.com/GaurangNandaniya/mac-control-web-app
+
+Key features:
+
+- Progressive Web App (PWA)
+- Responsive mobile-first design
+- Secure communication with your Mac controller
+- Avoids iOS sideloading limitations (7-day expiration bypass) There an ios and watch OS app as well in case interested.
+
+To use:
+
+````bash
+git clone https://github.com/GaurangNandaniya/mac-control-web-app.git
+cd mac-control-web-app
+npm install
+npm run build
+# Deploy the build folder to your hosting service
+
+### Python Requirements
 
 ```bash
+# Create virtual environment
 python3 -m venv venv
-source venv/bin/activate  # On macOS/Linux
-```
+source venv/bin/activate
 
-3. Install dependencies:
-
-```bash
+# Install dependencies
 pip install -r requirements.txt
-```
+````
 
-4. Run the server:
+### Certificate Setup
+
+1. Install mkcert:
 
 ```bash
-python run.py
+brew install mkcert nss
+mkcert -install
 ```
 
-The server will start and display the local URL and mDNS name for connection.
+2. Generate certificates (run in project root):
+
+```bash
+IP=$(ipconfig getifaddr en0)
+mkcert $IP mymac.local localhost
+# Certificates will be created in current directory
+```
+
+3. Configure `.env`:
+
+```ini
+CERTIFICATE_PATH=./192.168.x.x+2.pem
+PRIVATE_KEY_PATH=./192.168.x.x+2-key.pem
+AUTH_SECRET_KEY=your-secure-key-here
+MAX_DEVICES=5
+WEB_APP_URL=https://your-deployment.com
+```
+
+### iPhone Pairing Guide
+
+1. Locate root CA certificate:
+   ```bash
+   mkcert -CAROOT  # Shows CA certificate location
+   ```
+2. Transfer `rootCA.pem` to iPhone using:
+   - AirDrop
+   - Email attachment
+   - Cloud storage
+3. On iPhone:
+   - Open certificate file → Install profile
+   - Go to Settings → General → About → Certificate Trust Settings
+   - Enable "Full Trust" for mkcert root CA
+
+### Automator & Startup Configuration
+
+1. Make shell script executable:
+
+```bash
+chmod +x start_mac_controller_server.sh
+```
+
+2. Create Automator App:
+
+   - New Document → Application
+   - Add "Run Shell Script" action:
+
+   ```bash
+   export macControllerDirPath="/PATH/TO/YOUR/mac_controller"
+   /bin/bash "$macControllerDirPath/start_mac_controller_server.sh"
+   ```
+
+   - Save as `Mac Controller.app`
+
+3. Enable Auto-Start (Optional):
+   - System Settings → General → Login Items
+   - Click ➕ and select `Mac Controller.app`
+   - Check "Open at Login" option
+
+## Server Management
+
+- **Manual Start**: Run `mac_controller_app.py` directly
+- **Auto-Start**: Login Items launch Automator app
+- **Menu Options**:
+  - 🟢/🔴 Start/Stop Server
+  - QR Code Generation
+  - Connected Device Management
+  - Server Status Monitoring
 
 ## Rust Implementation
 
