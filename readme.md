@@ -31,8 +31,23 @@ A dual-implementation server (Python/Flask and Rust/Actix) providing remote cont
 2. **First Run Setup**:
 
    - Generate certificates using mkcert
-   - Configure `.env` file with paths to certificates
-   - Create Automator app for easy startup
+     Generate a trusted cert for those names
+
+     Run this in your project folder:
+
+     ```
+     mkcert myservice.local 192.168.1.25 localhost 127.0.0.1 ::1
+     ```
+
+     You’ll get two files (names may vary slightly):
+
+     ```
+     myservice.local+4.pem # certificate
+     myservice.local+4-key.pem # private key
+     ```
+
+- Configure `.env` file with paths to certificates
+- Create Automator app for easy startup
 
 3. **Daily Operation**:
    - Control via menu bar options or web interface

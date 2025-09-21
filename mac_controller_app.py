@@ -10,6 +10,7 @@ from zeroconf import ServiceInfo, Zeroconf
 import socket
 from src.utils.socket import get_local_ip
 from src.utils.auth_manager import auth_manager
+from src.utils.keyboardMouseController import unlock_keyboard,unlock_mouse
 from dotenv import load_dotenv
 import os
 load_dotenv()
@@ -66,7 +67,7 @@ class MacPyCtrlMenuBar(rumps.App):
     """
     def __init__(self):
         # Initialize the menu bar app with name and icon
-        super(MacPyCtrlMenuBar, self).__init__("MacPyCtrl", icon="./icon.jpg")
+        super(MacPyCtrlMenuBar, self).__init__("MacPyCtrl", icon="./icon.jpg", quit_button=None)
 
         # Initialize Flask application configuration (but don't create the server yet)
         self.app = create_app() #The main reason is to get access to your Flask app's configuration settings:
@@ -98,6 +99,7 @@ class MacPyCtrlMenuBar(rumps.App):
         self.ip_item = rumps.MenuItem("📡 IP Address", callback=None)
         self.qr_item = rumps.MenuItem("QR Code", callback=self.open_qr_page)
         self.revoke_all = rumps.MenuItem("Revoke All Devices", callback=self.revoke_all_devices)
+        self.quit_button_item = rumps.MenuItem("Quit", callback=self.cleanup)
 
         # Define menu with key-based items
         self.menu = [
@@ -108,7 +110,8 @@ class MacPyCtrlMenuBar(rumps.App):
             None,  # separator
             self.status_item,
             self.ip_item,
-            self.revoke_all
+            self.revoke_all,
+            self.quit_button_item
         ]
         
         # Set initial state of the server
@@ -302,7 +305,7 @@ Server running at:
         self.update_status("Running", "🟢")
         self.start_item.set_callback(None)  # Disable start button
         self.stop_item.set_callback(self.stop_server)  # Enable stop button
-        
+
         # Show notification that server has started
         rumps.notification("MacPyCtrl", "Server Started", 
                           f"Server running at http://{get_local_ip()}:{self.app.config['SERVER_PORT']}")
@@ -318,7 +321,7 @@ Server running at:
         if not self.is_server_running:
             rumps.alert("Server is not running!")
             return
-            
+                
         # Signal all threads to stop
         self._stop_event.set()
         
@@ -359,12 +362,14 @@ Server running at:
                     self.mdns_service_info = None
 
 
-    def cleanup(self):
+    def cleanup(self,sender):
         """
         Comprehensive cleanup method that stops all services and threads.
         This method is called automatically when the app exits.
         """
         print("Starting cleanup...")
+        unlock_keyboard()  # Ensure keyboard is unlocked when server stops
+        unlock_mouse()  # Ensure mouse is unlocked when server stops
         # Signal all threads to stop
         self._stop_event.set()
         
@@ -386,7 +391,7 @@ Server running at:
         
         # Clean up mDNS resources
         self.cleanup_mdns()
-        
+        rumps.quit_application()
         print("Cleanup completed")
 
 # Entry point when the script is run directly

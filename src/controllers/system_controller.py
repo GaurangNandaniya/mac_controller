@@ -7,6 +7,7 @@ import cv2
 import time
 from datetime import datetime
 from src.utils.auth_manager import auth_manager
+from src.utils.keyboardMouseController import lock_keyboard, unlock_keyboard, lock_mouse, unlock_mouse
 
 logger = setup_logger()
 
@@ -146,3 +147,24 @@ def capture_and_lock():
     except Exception as e:
         logger.error(f"Error: {str(e)}")
         return jsonify({"status": "error", "error": str(e)}), 500
+    
+
+@system_bp.route('/keyboard-lock', methods=['POST'])
+def keyboard_lock():
+    lock_keyboard()
+    return jsonify({"status": "success", "message": "keyboard locked"})
+
+@system_bp.route('/keyboard-unlock', methods=['POST'])
+def keyboard_unlock():
+    unlock_keyboard()
+    return  jsonify({"status": "success", "message": "keyboard unlocked"})
+
+@system_bp.route('/mouse-lock', methods=['POST'])
+def mouse_lock():
+    lock_mouse()
+    return jsonify({"status": "success", "message": "mouse locked"})
+
+@system_bp.route('/mouse-unlock', methods=['POST'])
+def mouse_unlock():
+    unlock_mouse()
+    return jsonify({"status": "success", "message": "mouse unlocked"})
