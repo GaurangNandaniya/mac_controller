@@ -37,7 +37,7 @@ def on_press(key):
 def lock_keyboard():
     global keyboard_listener
     if keyboard_listener is None:
-        keyboard_listener = keyboard.keyboard_listener(on_press=on_press, suppress=True)
+        keyboard_listener = keyboard.Listener(on_press=on_press, suppress=True)
         keyboard_listener.start()
         text_to_speech("Keyboard is disabled.")
 
