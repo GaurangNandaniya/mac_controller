@@ -58,8 +58,14 @@ def create_screen_share_app():
         try:
             with mss.mss() as sct:
                 monitor = sct.monitors[1]  # Primary monitor
-                width = monitor['width']
-                height = monitor['height']
+
+                # Grab a test frame to detect actual pixel dimensions
+                # (on Retina displays, actual pixels are 2x the logical monitor size)
+                test_shot = sct.grab(monitor)
+                test_frame = np.array(test_shot)
+                actual_height, actual_width = test_frame.shape[:2]
+                print(f"Screen capture: logical={monitor['width']}x{monitor['height']}, "
+                      f"actual={actual_width}x{actual_height}")
 
                 # Start ffmpeg subprocess for H.264 encoding
                 ffmpeg_cmd = [
@@ -67,7 +73,7 @@ def create_screen_share_app():
                     '-y',
                     '-f', 'rawvideo',
                     '-pix_fmt', 'bgra',
-                    '-s', f'{width}x{height}',
+                    '-s', f'{actual_width}x{actual_height}',
                     '-r', str(SCREEN_SHARE_FPS),
                     '-i', 'pipe:0',
                     '-c:v', 'libx264',
@@ -98,10 +104,6 @@ def create_screen_share_app():
                             start_time = time.time()
 
                             screenshot = sct.grab(monitor)
-                            frame_bytes = bytes(screenshot.rgb)
-
-                            # mss gives RGB, but we told ffmpeg bgra
-                            # Actually mss .rgb gives RGB, let's use raw bgra
                             raw = np.array(screenshot)  # BGRA numpy array
                             raw_bytes = raw.tobytes()
 
