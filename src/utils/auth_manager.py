@@ -312,6 +312,10 @@ class AuthManager:
                 
             token = request.headers.get('Authorization', '').replace('Bearer ', '')
             
+            # Fallback to query param token (needed for <img src> tags and direct browser URLs)
+            if not token:
+                token = request.args.get('token', '')
+            
             if not token:
                 return jsonify({'error': 'Authorization token required'}), 401
                 

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MacPyCtrl — Screen Share</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0a;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #video-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        video {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            background: #000;
+        }
+
+        /* Status overlay */
+        #status-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(10, 10, 10, 0.95);
+            z-index: 10;
+            transition: opacity 0.5s ease;
+        }
+
+        #status-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .status-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-text {
+            font-size: 18px;
+            color: #aaa;
+            letter-spacing: 0.5px;
+        }
+
+        .status-subtext {
+            font-size: 13px;
+            color: #555;
+            margin-top: 8px;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.95); }
+        }
+
+        /* Connection indicator */
+        #connection-badge {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 13px;
+            z-index: 20;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        #connection-badge.visible {
+            opacity: 1;
+        }
+
+        #connection-badge:hover {
+            opacity: 1 !important;
+        }
+
+        .badge-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #30d158;
+            box-shadow: 0 0 6px #30d158;
+        }
+
+        .badge-dot.disconnected {
+            background: #ff453a;
+            box-shadow: 0 0 6px #ff453a;
+        }
+
+        /* Fullscreen hint */
+        #fullscreen-hint {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 20px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            font-size: 12px;
+            color: #888;
+            z-index: 20;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            pointer-events: none;
+        }
+
+        #fullscreen-hint.visible {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Status overlay (shown while connecting/disconnected) -->
+    <div id="status-overlay">
+        <div class="status-icon" id="status-icon">🖥️</div>
+        <div class="status-text" id="status-text">Connecting to screen share...</div>
+        <div class="status-subtext" id="status-subtext">Establishing H.264 stream</div>
+    </div>
+
+    <!-- Connection badge -->
+    <div id="connection-badge">
+        <div class="badge-dot" id="badge-dot"></div>
+        <span id="badge-text">Live</span>
+    </div>
+
+    <!-- Video container -->
+    <div id="video-container" onclick="toggleFullscreen()">
+        <video id="video" autoplay muted playsinline></video>
+    </div>
+
+    <!-- Fullscreen hint -->
+    <div id="fullscreen-hint">Click anywhere to toggle fullscreen</div>
+
+    <script>
+        const video = document.getElementById('video');
+        const statusOverlay = document.getElementById('status-overlay');
+        const statusIcon = document.getElementById('status-icon');
+        const statusText = document.getElementById('status-text');
+        const statusSubtext = document.getElementById('status-subtext');
+        const connectionBadge = document.getElementById('connection-badge');
+        const badgeDot = document.getElementById('badge-dot');
+        const badgeText = document.getElementById('badge-text');
+        const fullscreenHint = document.getElementById('fullscreen-hint');
+
+        let mediaSource = null;
+        let sourceBuffer = null;
+        let ws = null;
+        let bufferQueue = [];
+        let isBufferUpdating = false;
+        let reconnectTimeout = null;
+        let isConnected = false;
+
+        function showStatus(icon, text, subtext) {
+            statusIcon.textContent = icon;
+            statusText.textContent = text;
+            statusSubtext.textContent = subtext || '';
+            statusOverlay.classList.remove('hidden');
+        }
+
+        function hideStatus() {
+            statusOverlay.classList.add('hidden');
+        }
+
+        function updateBadge(connected) {
+            isConnected = connected;
+            if (connected) {
+                badgeDot.classList.remove('disconnected');
+                badgeText.textContent = 'Live';
+                connectionBadge.classList.add('visible');
+                // Auto-hide badge after 3 seconds
+                setTimeout(() => {
+                    if (isConnected) {
+                        connectionBadge.classList.remove('visible');
+                    }
+                }, 3000);
+            } else {
+                badgeDot.classList.add('disconnected');
+                badgeText.textContent = 'Disconnected';
+                connectionBadge.classList.add('visible');
+            }
+        }
+
+        // Show badge on mouse move
+        document.addEventListener('mousemove', () => {
+            connectionBadge.classList.add('visible');
+            if (isConnected) {
+                clearTimeout(window._badgeHideTimeout);
+                window._badgeHideTimeout = setTimeout(() => {
+                    connectionBadge.classList.remove('visible');
+                }, 2000);
+            }
+        });
+
+        function appendBuffer() {
+            if (sourceBuffer && !sourceBuffer.updating && bufferQueue.length > 0) {
+                isBufferUpdating = true;
+                const chunk = bufferQueue.shift();
+                try {
+                    sourceBuffer.appendBuffer(chunk);
+                } catch (e) {
+                    console.warn('SourceBuffer append error:', e);
+                    // If quota exceeded, remove old data
+                    if (e.name === 'QuotaExceededError' && sourceBuffer.buffered.length > 0) {
+                        const removeEnd = sourceBuffer.buffered.start(0) + 
+                            (sourceBuffer.buffered.end(0) - sourceBuffer.buffered.start(0)) / 2;
+                        try {
+                            sourceBuffer.remove(0, removeEnd);
+                        } catch (re) {
+                            console.warn('Buffer remove error:', re);
+                        }
+                    }
+                }
+            }
+        }
+
+        function connect() {
+            showStatus('🖥️', 'Connecting to screen share...', 'Establishing H.264 stream');
+
+            // Determine WebSocket URL
+            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${location.host}/ws`;
+
+            // Setup MediaSource
+            mediaSource = new MediaSource();
+            video.src = URL.createObjectURL(mediaSource);
+
+            mediaSource.addEventListener('sourceopen', () => {
+                try {
+                    // H.264 Baseline profile for broadest compatibility
+                    sourceBuffer = mediaSource.addSourceBuffer('video/mp4; codecs="avc1.42E01E"');
+                    
+                    sourceBuffer.addEventListener('updateend', () => {
+                        isBufferUpdating = false;
+                        appendBuffer();
+                        
+                        // Keep buffer size manageable — remove data older than 5 seconds
+                        if (sourceBuffer.buffered.length > 0) {
+                            const currentTime = video.currentTime;
+                            const bufferedStart = sourceBuffer.buffered.start(0);
+                            if (currentTime - bufferedStart > 5) {
+                                try {
+                                    if (!sourceBuffer.updating) {
+                                        sourceBuffer.remove(bufferedStart, currentTime - 2);
+                                    }
+                                } catch (e) {
+                                    // Ignore removal errors
+                                }
+                            }
+                        }
+                    });
+
+                    sourceBuffer.addEventListener('error', (e) => {
+                        console.error('SourceBuffer error:', e);
+                    });
+
+                    // Connect WebSocket
+                    ws = new WebSocket(wsUrl);
+                    ws.binaryType = 'arraybuffer';
+
+                    ws.onopen = () => {
+                        console.log('WebSocket connected');
+                        updateBadge(true);
+                        
+                        // Show fullscreen hint briefly
+                        fullscreenHint.classList.add('visible');
+                        setTimeout(() => fullscreenHint.classList.remove('visible'), 4000);
+                    };
+
+                    ws.onmessage = (event) => {
+                        // Hide status overlay on first data
+                        hideStatus();
+                        
+                        const data = new Uint8Array(event.data);
+                        bufferQueue.push(data);
+                        
+                        if (!isBufferUpdating) {
+                            appendBuffer();
+                        }
+
+                        // Auto-play and keep video near live edge
+                        if (video.paused) {
+                            video.play().catch(() => {});
+                        }
+                        if (sourceBuffer.buffered.length > 0) {
+                            const liveEdge = sourceBuffer.buffered.end(sourceBuffer.buffered.length - 1);
+                            if (liveEdge - video.currentTime > 1.0) {
+                                video.currentTime = liveEdge - 0.1;
+                            }
+                        }
+                    };
+
+                    ws.onclose = () => {
+                        console.log('WebSocket disconnected');
+                        updateBadge(false);
+                        showStatus('🔌', 'Connection lost', 'Reconnecting in 3 seconds...');
+                        scheduleReconnect();
+                    };
+
+                    ws.onerror = (err) => {
+                        console.error('WebSocket error:', err);
+                        ws.close();
+                    };
+
+                } catch (e) {
+                    console.error('MediaSource setup error:', e);
+                    showStatus('❌', 'Playback error', e.message);
+                }
+            });
+
+            mediaSource.addEventListener('sourceended', () => {
+                console.log('MediaSource ended');
+            });
+
+            mediaSource.addEventListener('error', (e) => {
+                console.error('MediaSource error:', e);
+                showStatus('❌', 'Media error', 'Try refreshing the page');
+            });
+        }
+
+        function scheduleReconnect() {
+            if (reconnectTimeout) clearTimeout(reconnectTimeout);
+            reconnectTimeout = setTimeout(() => {
+                cleanup();
+                connect();
+            }, 3000);
+        }
+
+        function cleanup() {
+            if (ws) {
+                ws.onclose = null; // Prevent reconnect loop
+                ws.close();
+                ws = null;
+            }
+            if (mediaSource && mediaSource.readyState === 'open') {
+                try {
+                    mediaSource.endOfStream();
+                } catch (e) {}
+            }
+            mediaSource = null;
+            sourceBuffer = null;
+            bufferQueue = [];
+            isBufferUpdating = false;
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                document.exitFullscreen().catch(() => {});
+            }
+        }
+
+        // Handle keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'f' || e.key === 'F') {
+                toggleFullscreen();
+            } else if (e.key === 'Escape' && document.fullscreenElement) {
+                document.exitFullscreen().catch(() => {});
+            }
+        });
+
+        // Start connection
+        connect();
+    </script>
+</body>
+</html>

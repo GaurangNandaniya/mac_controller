@@ -8,7 +8,7 @@ __pycache__/
 *$py.class
 .DS_STORE
 
-
+logs/
 *.pem
 
 auth_data.json

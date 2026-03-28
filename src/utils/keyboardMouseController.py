@@ -1,6 +1,7 @@
 from pynput import keyboard,mouse
 import pyttsx3
 from threading import Thread
+import time
 
 #for keyboard locking
 keyboard_listener = None
@@ -16,8 +17,19 @@ engine.setProperty('rate', 100)  # Set speech rate (words per minute)
 
 def speak_text(text):
     """Function to perform text-to-speech in a separate thread."""
+
     engine.say(text)
     engine.runAndWait()
+    # while True:
+    #     print("Waiting for engine to be free...",engine.isBusy())
+    #     if not engine.isBusy():  # Check if the engine is busy
+    #         try:
+    #             engine.runAndWait()
+    #         except Exception as e:
+    #             print(f"Error in text-to-speech: {e}")
+    #         break
+    #     else:
+    #         time.sleep(2)  # Wait a bit before checking again
 
 def text_to_speech(text):
     try:
@@ -39,7 +51,8 @@ def lock_keyboard():
     if keyboard_listener is None:
         keyboard_listener = keyboard.Listener(on_press=on_press, suppress=True)
         keyboard_listener.start()
-        text_to_speech("Keyboard is disabled.")
+        # text_to_speech("Keyboard is disabled.")
+        text_to_speech("Fuck you")
 
 def unlock_keyboard():
     global keyboard_listener

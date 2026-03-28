@@ -1,0 +1,10 @@
+1. Key board lock un-lock - done
+2. Touch pad lock un-lock - done
+3. 📷 Live camera feed — Stream live webcam video over HTTP (MJPEG or WebSocket)
+4. 🖥️ Live screen feed — Stream the display in real-time
+5. ⌨️ Remote keyboard type — Send keystrokes/text to type remotely
+6. 🖱️ Mouse move/click control — Move cursor and click via API
+7. 📂 File browser — Browse and download files remotely
+8. 🔔 Push notifications — Send macOS notifications remotely
+9. 📊 System stats — CPU, RAM, disk usage endpoint
+10.🔋 Battery status polling — Real-time battery level
