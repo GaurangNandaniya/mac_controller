@@ -11,3 +11,9 @@ SCREEN_SHARE_QUALITY = 80 # Default JPEG quality
 # WebRTC Screen Share configuration (Experimental)
 WEBRTC_SHARE_PORT = 9091
 WEBRTC_FPS = 30
+
+# System Audio Share configuration (BlackHole loopback)
+AUDIO_SHARE_PORT = 9092
+AUDIO_SAMPLE_RATE = 48000
+AUDIO_CHANNELS = 2
+AUDIO_CHUNK_SIZE = 2048

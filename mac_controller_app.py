@@ -8,6 +8,7 @@ import multiprocessing
 from src.server import create_app
 from src.screen_share_server import run_screen_share_server
 from src.webrtc_server import run_webrtc_server
+from src.audio_server import run_audio_server
 from zeroconf import ServiceInfo, Zeroconf
 import socket
 from src.utils.socket import get_local_ip
@@ -90,8 +91,9 @@ class MacPyCtrlMenuBar(rumps.App):
         self.server_process = None
         self.is_server_running = False
         
-        # Screen share process management
+        # Screen share & Audio process management
         self.screen_share_process = None
+        self.audio_share_process = None
         self.is_screen_share_running = False
         
         # WebRTC process management
@@ -167,22 +169,33 @@ Server running at:
         webbrowser.open(f"https://localhost:{self.app.config['SERVER_PORT']}/auth/qr")
 
     def toggle_screen_share(self, sender):
-        """Start or stop the dedicated screen share server."""
+        """Start or stop the dedicated screen share server and its paired audio server."""
         if self.is_screen_share_running:
             # Stop screen share
             if self.screen_share_process and self.screen_share_process.is_alive():
                 self.screen_share_process.terminate()
                 self.screen_share_process.join(timeout=5.0)
                 self.screen_share_process = None
+                
+            # Stop audio share
+            if self.audio_share_process and self.audio_share_process.is_alive():
+                self.audio_share_process.terminate()
+                self.audio_share_process.join(timeout=5.0)
+                self.audio_share_process = None
             
             self.is_screen_share_running = False
             self.screen_share_item.title = "🖥️ Start Screen Share (MJPEG)"
             rumps.notification("MacPyCtrl", "Screen Share Stopped", "Screen sharing has been stopped")
         else:
-            # Start screen share
+            # Start screen share video
             self.screen_share_process = multiprocessing.Process(target=run_screen_share_server)
             self.screen_share_process.daemon = True
             self.screen_share_process.start()
+            
+            # Start screen share audio
+            self.audio_share_process = multiprocessing.Process(target=run_audio_server)
+            self.audio_share_process.daemon = True
+            self.audio_share_process.start()
             
             self.is_screen_share_running = True
             self.screen_share_item.title = "🛑 Stop Screen Share (MJPEG)"
@@ -448,6 +461,11 @@ Server running at:
         if self.screen_share_process and self.screen_share_process.is_alive():
             self.screen_share_process.terminate()
             self.screen_share_process.join(timeout=2.0)
+            
+        # Terminate the audio server if running
+        if self.audio_share_process and self.audio_share_process.is_alive():
+            self.audio_share_process.terminate()
+            self.audio_share_process.join(timeout=2.0)
             
         # Terminate the WebRTC share server if running
         if self.webrtc_share_process and self.webrtc_share_process.is_alive():

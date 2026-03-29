@@ -180,6 +180,9 @@
         <div class="badge-sep"></div>
         <span class="badge-label">BW</span>
         <span class="badge-value" id="badge-bw">--</span>
+        <div class="badge-sep"></div>
+        <span class="badge-label">Audio</span>
+        <span class="badge-value" id="badge-audio">Wait...</span>
     </div>
 
     <!-- NATIVE BROWSER MJPEG PLAYER -->
@@ -202,6 +205,7 @@
         const fullscreenHint = document.getElementById('fullscreen-hint');
         const badgeFps = document.getElementById('badge-fps');
         const badgeBw = document.getElementById('badge-bw');
+        const badgeAudio = document.getElementById('badge-audio');
 
         let reconnectTimeout = null;
         let statsInterval = null;
@@ -267,6 +271,83 @@
             
             // Rehook img stream
             videoImg.src = streamUrl;
+            
+            // Connect Audio
+            connectAudio();
+        }
+
+        // --- System Audio via WebSockets ---
+        let audioWs = null;
+        let audioCtx = null;
+        let nextPlayTime = 0;
+        
+        function connectAudio() {
+            if (audioWs) audioWs.close();
+            
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const audioHost = window.location.hostname + ':9092';
+            audioWs = new WebSocket(`${wsProtocol}//${audioHost}/audio_ws`);
+            audioWs.binaryType = 'arraybuffer';
+            
+            audioWs.onopen = () => {
+                console.log('Audio WebSocket connected.');
+                badgeAudio.textContent = 'Live';
+                badgeAudio.style.color = '#30d158';
+            };
+            
+            audioWs.onmessage = (event) => {
+                // Initialize Audio Context on first packet (browsers usually require user interaction, 
+                // but local websockets on localhost sometimes bypass this. Clicking fullscreen guarantees it.)
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                
+                const int16Buffer = new Int16Array(event.data);
+                
+                // Assuming 2 channels, 48000 Hz (Mac OS Default for newer displays/audio)
+                const audioBuffer = audioCtx.createBuffer(2, int16Buffer.length / 2, 48000);
+                const channelL = audioBuffer.getChannelData(0);
+                const channelR = audioBuffer.getChannelData(1);
+                
+                // De-interleave the Int16Array and convert to Float32 (-1.0 to 1.0)
+                for (let i = 0; i < int16Buffer.length / 2; i++) {
+                    channelL[i] = int16Buffer[i * 2] / 32768.0;
+                    channelR[i] = int16Buffer[i * 2 + 1] / 32768.0;
+                }
+                
+                const source = audioCtx.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(audioCtx.destination);
+                
+                // --- Anti-Latency Scheduler ---
+                // If the stream gets delayed by network buffering (WebSocket backlog), 
+                // the `nextPlayTime` will grow massively into the future.
+                // We enforce a strict 250ms maximum latency cap. If we drift further, we drop the backlog.
+                const MAX_LATENCY = 0.25; 
+                
+                if (nextPlayTime > audioCtx.currentTime + MAX_LATENCY) {
+                    console.warn("Audio buffer too large! Snapping back to live.");
+                    nextPlayTime = audioCtx.currentTime + 0.05; // Force immediate start with 50ms smooth room
+                } else if (nextPlayTime < audioCtx.currentTime) {
+                    nextPlayTime = audioCtx.currentTime + 0.05;
+                }
+                
+                source.start(nextPlayTime);
+                nextPlayTime += audioBuffer.duration;
+            };
+            
+            audioWs.onerror = (e) => {
+                console.error('Audio WS Error:', e);
+            };
+            audioWs.onclose = () => {
+                console.log('Audio WS closed');
+                badgeAudio.textContent = 'Offline';
+                badgeAudio.style.color = '#ff453a';
+                // Don't auto-reconnect audio independently, connect() will handle it or wait for video stream
+            };
         }
 
         function scheduleReconnect() {
