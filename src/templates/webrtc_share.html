@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MacPyCtrl — Screen Share</title>
+    <title>MacPyCtrl — WebRTC Share (Exp.)</title>
     <style>
         * {
             margin: 0;
@@ -33,7 +33,7 @@
             cursor: pointer;
         }
 
-        img#video {
+        video#video {
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
@@ -122,6 +122,11 @@
             background: #ff453a;
             box-shadow: 0 0 6px #ff453a;
         }
+        
+        .badge-dot.connecting {
+            background: #ffd60a;
+            box-shadow: 0 0 6px #ffd60a;
+        }
 
         .badge-sep {
             width: 1px;
@@ -162,36 +167,31 @@
 
     <!-- Status overlay -->
     <div id="status-overlay">
-        <div class="status-icon" id="status-icon">🖥️</div>
-        <div class="status-text" id="status-text">Connecting to pure MJPEG stream...</div>
-        <div class="status-subtext" id="status-subtext">Hardware-accelerated native playback</div>
+        <div class="status-icon" id="status-icon">🌐</div>
+        <div class="status-text" id="status-text">Negotiating WebRTC Connection...</div>
+        <div class="status-subtext" id="status-subtext">Establishing peer-to-peer UDP relay</div>
     </div>
 
     <!-- Info badge -->
     <div id="info-badge">
-        <div class="badge-dot" id="badge-dot"></div>
-        <span id="badge-status">Live</span>
-        <div class="badge-sep"></div>
-        <span class="badge-label">FPS</span>
-        <span class="badge-value" id="badge-fps">--</span>
+        <div class="badge-dot connecting" id="badge-dot"></div>
+        <span id="badge-status">Connecting</span>
         <div class="badge-sep"></div>
         <span class="badge-label">Mode</span>
-        <span class="badge-value">MJPEG</span>
-        <div class="badge-sep"></div>
-        <span class="badge-label">BW</span>
-        <span class="badge-value" id="badge-bw">--</span>
+        <span class="badge-value">WebRTC UDP</span>
     </div>
 
-    <!-- NATIVE BROWSER MJPEG PLAYER -->
+    <!-- NATIVE BROWSER WEBRTC VIDEO PLAYER -->
     <div id="video-container" onclick="toggleFullscreen()">
-        <img id="video" alt="Screen Share Stream" />
+        <!-- Auto-plays inline without controls for native screen sharing feel -->
+        <video id="video" autoplay playsinline muted></video>
     </div>
 
     <!-- Fullscreen hint -->
     <div id="fullscreen-hint">Click anywhere or press F to toggle fullscreen</div>
 
     <script>
-        const videoImg = document.getElementById('video');
+        const videoElement = document.getElementById('video');
         const statusOverlay = document.getElementById('status-overlay');
         const statusIcon = document.getElementById('status-icon');
         const statusText = document.getElementById('status-text');
@@ -200,48 +200,22 @@
         const badgeDot = document.getElementById('badge-dot');
         const badgeStatus = document.getElementById('badge-status');
         const fullscreenHint = document.getElementById('fullscreen-hint');
-        const badgeFps = document.getElementById('badge-fps');
-        const badgeBw = document.getElementById('badge-bw');
 
+        let pc = null;
         let reconnectTimeout = null;
-        let statsInterval = null;
 
-        function updateBadge(connected) {
-            if (connected) {
-                badgeDot.classList.remove('disconnected');
+        function updateBadge(state) {
+            badgeDot.className = 'badge-dot';
+            if (state === 'connected') {
                 badgeStatus.textContent = 'Live';
-                
-                // Start polling stats
-                if (!statsInterval) {
-                    statsInterval = setInterval(async () => {
-                        try {
-                            const res = await fetch('/stats');
-                            const stats = await res.json();
-                            badgeFps.textContent = stats.fps;
-                            badgeBw.textContent = formatBytes(stats.bandwidth_bps) + '/s';
-                        } catch (e) {
-                            badgeFps.textContent = '--';
-                            badgeBw.textContent = '--/s';
-                        }
-                    }, 1000);
-                }
+                badgeDot.classList.add('connected'); // Uses default green background
+            } else if (state === 'connecting') {
+                badgeStatus.textContent = 'Negotiating';
+                badgeDot.classList.add('connecting');
             } else {
-                badgeDot.classList.add('disconnected');
                 badgeStatus.textContent = 'Offline';
-                badgeFps.textContent = '--';
-                badgeBw.textContent = '--/s';
-                
-                if (statsInterval) {
-                    clearInterval(statsInterval);
-                    statsInterval = null;
-                }
+                badgeDot.classList.add('disconnected');
             }
-        }
-
-        function formatBytes(bytes) {
-            if (bytes < 1024) return bytes + ' B';
-            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
-            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
         }
 
         // Show badge on mouse move
@@ -254,52 +228,116 @@
             }, 3000);
         });
 
-        // --- Connection handling ---
+        // --- WebRTC Connection handling ---
 
-        function connect() {
+        async function createPeerConnection() {
+            if (pc) {
+                pc.close();
+            }
+
             statusOverlay.classList.remove('hidden');
-            statusIcon.textContent = '🖥️';
-            statusText.textContent = 'Connecting to pure MJPEG stream...';
-            statusSubtext.textContent = 'Hardware-accelerated native playback';
+            statusIcon.textContent = '🌐';
+            statusText.textContent = 'Negotiating WebRTC Connection...';
+            statusSubtext.textContent = 'Establishing peer-to-peer UDP transport';
+            updateBadge('connecting');
 
-            // By appending a timestamp, we bypass the browser cache and force a fresh connection Request
-            const streamUrl = `/stream?v=${Date.now()}`;
-            
-            // Rehook img stream
-            videoImg.src = streamUrl;
+            // Set up local peer connection with a default STUN server just in case
+            const config = {
+                sdpSemantics: 'unified-plan',
+                iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }]
+            };
+
+            pc = new RTCPeerConnection(config);
+
+            // Tell the peer what we want to receive
+            pc.addTransceiver('video', { direction: 'recvonly' });
+
+            // Hook incoming track event
+            pc.addEventListener('track', (evt) => {
+                if (evt.track.kind == 'video') {
+                    videoElement.srcObject = evt.streams[0];
+                    statusOverlay.classList.add('hidden');
+                    infoBadge.classList.add('visible');
+                    fullscreenHint.classList.add('visible');
+                    setTimeout(() => fullscreenHint.classList.remove('visible'), 4000);
+                }
+            });
+
+            // Handle connection state changes
+            pc.addEventListener('connectionstatechange', () => {
+                if (pc.connectionState === 'connected') {
+                    console.log('WebRTC connected flawlessly!');
+                    updateBadge('connected');
+                } else if (pc.connectionState === 'failed' || pc.connectionState === 'closed' || pc.connectionState === 'disconnected') {
+                    console.error('WebRTC disconnected or failed.');
+                    updateBadge('disconnected');
+                    
+                    statusIcon.textContent = '🔌';
+                    statusText.textContent = 'Connection lost';
+                    statusSubtext.textContent = 'Attempting to renegotiate in 3 seconds...';
+                    statusOverlay.classList.remove('hidden');
+                    
+                    scheduleReconnect();
+                }
+            });
+
+            try {
+                // Generate SDP Offer
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+
+                // Wait for ICE gathering to complete before sending the offer
+                await new Promise((resolve) => {
+                    if (pc.iceGatheringState === 'complete') {
+                        resolve();
+                    } else {
+                        const checkState = () => {
+                            if (pc.iceGatheringState === 'complete') {
+                                pc.removeEventListener('icegatheringstatechange', checkState);
+                                resolve();
+                            }
+                        };
+                        pc.addEventListener('icegatheringstatechange', checkState);
+                    }
+                });
+
+                // Send the generated offer to the Python /offer endpoint!
+                const response = await fetch('/offer', {
+                    body: JSON.stringify({
+                        sdp: pc.localDescription.sdp,
+                        type: pc.localDescription.type
+                    }),
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    method: 'POST'
+                });
+
+                if (!response.ok) {
+                    throw new Error('Server returned HTTP status ' + response.status);
+                }
+
+                const answer = await response.json();
+                
+                // Consume the answer from the server
+                await pc.setRemoteDescription(answer);
+
+            } catch (e) {
+                console.error('WebRTC negotiation failed', e);
+                updateBadge('disconnected');
+                statusIcon.textContent = '❌';
+                statusText.textContent = 'Negotiation Failed';
+                statusSubtext.textContent = e.message;
+                scheduleReconnect();
+            }
         }
 
         function scheduleReconnect() {
             if (reconnectTimeout) clearTimeout(reconnectTimeout);
             reconnectTimeout = setTimeout(() => {
-                connect();
+                createPeerConnection();
             }, 3000);
         }
-
-        // Fired when the image starts successfully receiving the multipart stream!
-        videoImg.onload = () => {
-            console.log('MJPEG stream active');
-            statusOverlay.classList.add('hidden');
-            infoBadge.classList.add('visible');
-            updateBadge(true);
-            
-            // Hide the fullscreen hint shortly after starting
-            fullscreenHint.classList.add('visible');
-            setTimeout(() => fullscreenHint.classList.remove('visible'), 4000);
-        };
-
-        // Fired if the HTTP stream drops, fails, or the server dies
-        videoImg.onerror = (err) => {
-            console.warn('MJPEG stream died or failed to connect');
-            updateBadge(false);
-            
-            statusIcon.textContent = '🔌';
-            statusText.textContent = 'Connection lost';
-            statusSubtext.textContent = 'Reconnecting in 3 seconds...';
-            statusOverlay.classList.remove('hidden');
-            
-            scheduleReconnect();
-        };
 
         // --- Fullscreen ---
 
@@ -315,8 +353,8 @@
             if (e.key === 'f' || e.key === 'F') toggleFullscreen();
         });
 
-        // --- Start ---
-        connect();
+        // Start connection automatically
+        createPeerConnection();
     </script>
 </body>
 </html>

@@ -7,6 +7,7 @@ import warnings
 import multiprocessing
 from src.server import create_app
 from src.screen_share_server import run_screen_share_server
+from src.webrtc_server import run_webrtc_server
 from zeroconf import ServiceInfo, Zeroconf
 import socket
 from src.utils.socket import get_local_ip
@@ -93,6 +94,10 @@ class MacPyCtrlMenuBar(rumps.App):
         self.screen_share_process = None
         self.is_screen_share_running = False
         
+        # WebRTC process management
+        self.webrtc_share_process = None
+        self.is_webrtc_share_running = False
+        
         # Background threads
         self.mdns_refresh_thread = None
         self.udp_beacon_thread = None
@@ -103,7 +108,8 @@ class MacPyCtrlMenuBar(rumps.App):
         self.status_item = rumps.MenuItem("ℹ️ Server Status", callback=None)
         self.ip_item = rumps.MenuItem("📡 IP Address", callback=None)
         self.qr_item = rumps.MenuItem("QR Code", callback=self.open_qr_page)
-        self.screen_share_item = rumps.MenuItem("🖥️ Start Screen Share", callback=self.toggle_screen_share)
+        self.screen_share_item = rumps.MenuItem("🖥️ Start Screen Share (MJPEG)", callback=self.toggle_screen_share)
+        self.webrtc_share_item = rumps.MenuItem("🌐 Start WebRTC Share (Exp.)", callback=self.toggle_webrtc_share)
         self.revoke_all = rumps.MenuItem("Revoke All Devices", callback=self.revoke_all_devices)
         self.quit_button_item = rumps.MenuItem("Quit", callback=self.cleanup)
 
@@ -114,6 +120,7 @@ class MacPyCtrlMenuBar(rumps.App):
             None,  # separator
             self.qr_item,
             self.screen_share_item,
+            self.webrtc_share_item,
             None,  # separator
             self.status_item,
             self.ip_item,
@@ -169,7 +176,7 @@ Server running at:
                 self.screen_share_process = None
             
             self.is_screen_share_running = False
-            self.screen_share_item.title = "🖥️ Start Screen Share"
+            self.screen_share_item.title = "🖥️ Start Screen Share (MJPEG)"
             rumps.notification("MacPyCtrl", "Screen Share Stopped", "Screen sharing has been stopped")
         else:
             # Start screen share
@@ -178,12 +185,38 @@ Server running at:
             self.screen_share_process.start()
             
             self.is_screen_share_running = True
-            self.screen_share_item.title = "🛑 Stop Screen Share"
+            self.screen_share_item.title = "🛑 Stop Screen Share (MJPEG)"
             
             share_url = f"http://{get_local_ip()}:{self.app.config.get('SCREEN_SHARE_PORT', 9090)}"
             rumps.notification("MacPyCtrl", "Screen Share Started",
                               f"Share this URL: {share_url}")
             print(f"Screen Share running at: {share_url}")
+
+    def toggle_webrtc_share(self, sender):
+        """Start or stop the experimental WebRTC share server."""
+        if self.is_webrtc_share_running:
+            # Stop WebRTC share
+            if self.webrtc_share_process and self.webrtc_share_process.is_alive():
+                self.webrtc_share_process.terminate()
+                self.webrtc_share_process.join(timeout=5.0)
+                self.webrtc_share_process = None
+            
+            self.is_webrtc_share_running = False
+            self.webrtc_share_item.title = "🌐 Start WebRTC Share (Exp.)"
+            rumps.notification("MacPyCtrl", "WebRTC Share Stopped", "WebRTC stream has been stopped")
+        else:
+            # Start WebRTC share
+            self.webrtc_share_process = multiprocessing.Process(target=run_webrtc_server)
+            self.webrtc_share_process.daemon = True
+            self.webrtc_share_process.start()
+            
+            self.is_webrtc_share_running = True
+            self.webrtc_share_item.title = "🛑 Stop WebRTC Share (Exp.)"
+            
+            share_url = f"http://{get_local_ip()}:{self.app.config.get('WEBRTC_SHARE_PORT', 9091)}"
+            rumps.notification("MacPyCtrl", "WebRTC Share Started",
+                              f"Share this URL: {share_url}")
+            print(f"WebRTC Share running at: {share_url}")
 
     def update_status(self, status=None, icon=None):
         """
@@ -415,6 +448,11 @@ Server running at:
         if self.screen_share_process and self.screen_share_process.is_alive():
             self.screen_share_process.terminate()
             self.screen_share_process.join(timeout=2.0)
+            
+        # Terminate the WebRTC share server if running
+        if self.webrtc_share_process and self.webrtc_share_process.is_alive():
+            self.webrtc_share_process.terminate()
+            self.webrtc_share_process.join(timeout=2.0)
         
         # Wait for threads to finish with timeout
         threads_to_join = []
