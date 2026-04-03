@@ -58,6 +58,14 @@ class ScreenStreamTrack(VideoStreamTrack):
         return new_frame
 
 
+async def handle_options(request):
+    """Handles CORS preflight requests from external web apps hitting the WebRTC endpoint."""
+    return web.Response(headers={
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+    })
+
 async def offer(request):
     """
     Handles WebRTC SDP negotiation. Receives an offer, creates a connection,
@@ -87,6 +95,8 @@ async def offer(request):
     return web.json_response({
         "sdp": pc.localDescription.sdp,
         "type": pc.localDescription.type
+    }, headers={
+        "Access-Control-Allow-Origin": "*"
     })
 
 
@@ -113,6 +123,7 @@ def run_webrtc_server():
     app.on_shutdown.append(on_shutdown)
     app.router.add_get("/", index)
     app.router.add_post("/offer", offer)
+    app.router.add_options("/offer", handle_options)
 
     # Access log is disabled to maximize frame performance
     web.run_app(app, host="0.0.0.0", port=WEBRTC_SHARE_PORT, access_log=None)

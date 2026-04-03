@@ -110,7 +110,9 @@ class MacPyCtrlMenuBar(rumps.App):
         self.status_item = rumps.MenuItem("ℹ️ Server Status", callback=None)
         self.ip_item = rumps.MenuItem("📡 IP Address", callback=None)
         self.qr_item = rumps.MenuItem("QR Code", callback=self.open_qr_page)
-        self.screen_share_item = rumps.MenuItem("🖥️ Start Screen Share (MJPEG)", callback=self.toggle_screen_share)
+        self.camera_test_item = rumps.MenuItem("📷 Open Camera Test", callback=self.open_camera_test)
+        self.screen_test_item = rumps.MenuItem("🖥️ Open Screen Test (Simple)", callback=self.open_screen_test)
+        self.screen_share_item = rumps.MenuItem("🚀 Start Advanced Screen Share (MJPEG)", callback=self.toggle_screen_share)
         self.webrtc_share_item = rumps.MenuItem("🌐 Start WebRTC Share (Exp.)", callback=self.toggle_webrtc_share)
         self.revoke_all = rumps.MenuItem("Revoke All Devices", callback=self.revoke_all_devices)
         self.quit_button_item = rumps.MenuItem("Quit", callback=self.cleanup)
@@ -121,6 +123,8 @@ class MacPyCtrlMenuBar(rumps.App):
             self.stop_item,
             None,  # separator
             self.qr_item,
+            self.camera_test_item,
+            self.screen_test_item,
             self.screen_share_item,
             self.webrtc_share_item,
             None,  # separator
@@ -167,6 +171,18 @@ Server running at:
     def open_qr_page(self, sender):
         """Open the QR authentication page in browser"""
         webbrowser.open(f"https://localhost:{self.app.config['SERVER_PORT']}/auth/qr")
+
+    def open_camera_test(self, sender):
+        """Open the camera stream page in browser for local testing"""
+        protocol = "https" if os.getenv("CERTIFICATE_PATH") else "http"
+        token = self.auth_obj.generate_permanent_token("localhost_test", "Local Test")
+        webbrowser.open(f"{protocol}://localhost:{self.app.config['SERVER_PORT']}/system/camera/stream?token={token}")
+
+    def open_screen_test(self, sender):
+        """Open the simple screen stream page in browser for local testing"""
+        protocol = "https" if os.getenv("CERTIFICATE_PATH") else "http"
+        token = self.auth_obj.generate_permanent_token("localhost_test", "Local Test")
+        webbrowser.open(f"{protocol}://localhost:{self.app.config['SERVER_PORT']}/system/screen/stream?token={token}")
 
     def toggle_screen_share(self, sender):
         """Start or stop the dedicated screen share server and its paired audio server."""
