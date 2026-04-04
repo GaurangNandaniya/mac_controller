@@ -6,23 +6,16 @@ import signal
 import warnings
 import multiprocessing
 from src.server import create_app
-from src.screen_share_server import run_screen_share_server
-from src.webrtc_server import run_webrtc_server
-from src.audio_server import run_audio_server
-from zeroconf import ServiceInfo, Zeroconf
-import socket
+from src.streams.screen_share_server import run_screen_share_server
+from src.streams.webrtc_server import run_webrtc_server
+from src.streams.audio_server import run_audio_server
 from src.utils.socket import get_local_ip
 from src.utils.auth_manager import auth_manager
-from src.utils.keyboardMouseController import unlock_keyboard,unlock_mouse
+from src.utils.keyboardMouseController import unlock_keyboard, unlock_mouse
+from src.services.mdns_service import MDNSService
 from dotenv import load_dotenv
 import os
 load_dotenv()
-
-
-# Suppress the specific resource_tracker warning
-warnings.filterwarnings("ignore", 
-                        message="resource_tracker: There appear to be \\d+ leaked semaphore objects to clean up at shutdown",
-                        category=UserWarning)
 
 def global_cleanup():
     """
@@ -73,18 +66,11 @@ class MacPyCtrlMenuBar(rumps.App):
         super(MacPyCtrlMenuBar, self).__init__("MacPyCtrl", icon="./icon.jpg", quit_button=None)
 
         # Initialize Flask application configuration (but don't create the server yet)
-        self.app = create_app() #The main reason is to get access to your Flask app's configuration settings:
-        self.server_name = "MacPyCTRLServer"
-        self.service_type = "_macpyctrlserver._tcp.local."
-
-        #init auth manager for clean up devices
+        self.app = create_app()
         self.auth_obj = auth_manager
-
-        # mDNS service variables for zero-configuration networking
-        self.mdns_zeroconf = None
-        self.mdns_service_info = None
-        self.mdns_lock = threading.Lock()  # Thread lock for mDNS operations
-        self.mdns_refresh_interval = 60    # How often to refresh mDNS registration (seconds)
+        
+        # Initialize mDNS microservice for network discovery
+        self.mdns = MDNSService(server_name="MacPyCTRLServer", port=self.app.config['SERVER_PORT'])
         self._stop_event = threading.Event()  # Event to signal threads to stop
         
         # Server process management
@@ -99,10 +85,6 @@ class MacPyCtrlMenuBar(rumps.App):
         # WebRTC process management
         self.webrtc_share_process = None
         self.is_webrtc_share_running = False
-        
-        # Background threads
-        self.mdns_refresh_thread = None
-        self.udp_beacon_thread = None
         
         # Create menu items with keys for easy access
         self.start_item = rumps.MenuItem("🟢 Start Server", callback=self.start_server)
@@ -150,7 +132,7 @@ class MacPyCtrlMenuBar(rumps.App):
         print(f"""
 Server running at:
 - Local URL: http://{get_local_ip()}:{self.app.config['SERVER_PORT']}
-- mDNS Name: {self.server_name} (port {self.app.config['SERVER_PORT']})
+- mDNS Name: MacPyCTRLServer (port {self.app.config['SERVER_PORT']})
         """)
     def revoke_all_devices(self, sender):
         """Revoke all connected devices"""
@@ -270,99 +252,6 @@ Server running at:
             # Fallback if IP address can't be determined
             self.ip_item.title = "📡 IP: Unknown"
 
-    def register_mdns(self):
-        """
-        Register the Flask server with mDNS (multicast DNS) for zero-configuration 
-        discovery on the local network. This allows other devices to find the server
-        by its name without needing to know its IP address.
-        """
-        with self.mdns_lock:  # Ensure thread-safe access to mDNS resources
-            # Unregister existing service if any
-            if self.mdns_zeroconf and self.mdns_service_info:
-                try:
-                    self.mdns_zeroconf.unregister_service(self.mdns_service_info)
-                    self.mdns_zeroconf.close()
-                except Exception as e:
-                    print(f"Error unregistering mDNS: {str(e)}")
-
-            # Get fresh network info and register new service
-            try:
-                local_ip = get_local_ip()
-                self.update_status() # updating IP in menu as well
-                hostname = socket.gethostname()
-                
-                # Create a new Zeroconf instance for service registration
-                self.mdns_zeroconf = Zeroconf()
-
-                # Create service information for mDNS registration
-                self.mdns_service_info = ServiceInfo(
-                    self.service_type,  # Service type
-                    f"{self.server_name}.{self.service_type}",  # Service name
-                    addresses=[socket.inet_aton(local_ip)],  # IP address
-                    port=self.app.config['SERVER_PORT'],  # Server port
-                    properties={"version": "1.0", "description": "MacPyCtrl Server"},
-                    server=f"{hostname}.local",  # Server hostname
-                )
-                
-                # Register the service with mDNS
-                self.mdns_zeroconf.register_service(self.mdns_service_info, ttl=60, allow_name_change=True)
-                print(f"Registered mDNS: {local_ip}:{self.app.config['SERVER_PORT']}")
-            except Exception as e:
-                print(f"mDNS registration failed: {str(e)}")
-
-    def mdns_refresh_loop(self):
-        """
-        Background thread that periodically refreshes the mDNS registration.
-        This ensures the registration stays current even if network conditions change.
-        """
-        while not self._stop_event.is_set():  # Run until stop event is set
-            try:
-                self.register_mdns()  # Refresh mDNS registration
-            except Exception as e:
-                print(f"Refresh loop error: {str(e)}")
-            finally:
-                # Wait for the interval or until stop event is set
-                self._stop_event.wait(self.mdns_refresh_interval)
-
-    def start_udp_beacon(self):
-        """
-        Start a UDP beacon that listens for discovery requests on the network.
-        When a discovery request is received, responds with server information.
-        """
-        UDP_PORT = 53535  # Custom port for discovery protocol
-        try:
-            # Create UDP socket for beacon
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            sock.settimeout(1)  # Set timeout to check for stop event regularly
-            sock.bind(('', UDP_PORT))
-            print("UDP beacon started, waiting for discovery requests...")
-
-            # Main beacon loop
-            while not self._stop_event.is_set():
-                try:
-                    # Wait for discovery requests
-                    data, addr = sock.recvfrom(1024)
-                    if data.decode().strip() == "DISCOVER_MACBOOK_SERVER":
-                        print("Received discovery request from:", addr)
-                        # Respond with server IP and port
-                        response = f"{get_local_ip()}:{self.app.config['SERVER_PORT']}".encode()
-                        sock.sendto(response, addr)
-                        print(f"Sent response: {response.decode()}")
-                except socket.timeout:
-                    continue  # Timeout is expected, just continue
-                except Exception as e:
-                    print(f"UDP beacon error: {e}")
-                    break
-        except OSError as e:
-            print(f"Failed to start UDP beacon: {e}")
-        except Exception as e:
-            print(f"UDP beacon error: {e}")
-        finally:
-            # Ensure socket is closed on exit
-            if 'sock' in locals():
-                sock.close()
 
     def start_server(self, sender):
         """
@@ -384,16 +273,8 @@ Server running at:
         self.server_process.daemon = True  # Make it a daemon so it exits with main process
         self.server_process.start()
         
-        # Register with mDNS for network discovery
-        self.register_mdns()
-        
-        # Start mDNS refresh thread to keep registration current
-        self.mdns_refresh_thread = threading.Thread(target=self.mdns_refresh_loop, daemon=True)
-        self.mdns_refresh_thread.start()
-        
-        # Start UDP beacon thread for discovery protocol
-        self.udp_beacon_thread = threading.Thread(target=self.start_udp_beacon, daemon=True)
-        self.udp_beacon_thread.start()
+        # Start mDNS and discovery services
+        self.mdns.start()
         
         # Update UI to reflect running state
         self.is_server_running = True
@@ -427,34 +308,14 @@ Server running at:
             self.server_process = None
         
         # Clean up mDNS registration
-        self.cleanup_mdns()
+        self.mdns.stop()
         
         # Update UI to reflect stopped state
         self.is_server_running = False
         self.update_status("Stopped", "🔴")
         self.stop_item.set_callback(None)  # Disable stop button
         self.start_item.set_callback(self.start_server)  # Enable start button
-        
-        # Show notification that server has stopped
         rumps.notification("MacPyCtrl", "Server Stopped", "Server has been stopped")
-
-    def cleanup_mdns(self):
-        """
-        Clean up mDNS resources by unregistering services and closing connections.
-        This ensures no lingering mDNS registrations after the app closes.
-        """
-        with self.mdns_lock:  # Ensure thread-safe access to mDNS resources
-            if self.mdns_zeroconf:
-                try:
-                    # Unregister all services and close zeroconf connection
-                    self.mdns_zeroconf.unregister_all_services()
-                    self.mdns_zeroconf.close()
-                    print("Cleaned up mDNS services")
-                except Exception as e:
-                    print(f"Error cleaning up mDNS: {e}")
-                finally:
-                    self.mdns_zeroconf = None
-                    self.mdns_service_info = None
 
 
     def cleanup(self,sender):
@@ -488,19 +349,8 @@ Server running at:
             self.webrtc_share_process.terminate()
             self.webrtc_share_process.join(timeout=2.0)
         
-        # Wait for threads to finish with timeout
-        threads_to_join = []
-        if hasattr(self, 'mdns_refresh_thread') and self.mdns_refresh_thread and self.mdns_refresh_thread.is_alive():
-            threads_to_join.append(self.mdns_refresh_thread)
-        if hasattr(self, 'udp_beacon_thread') and self.udp_beacon_thread and self.udp_beacon_thread.is_alive():
-            threads_to_join.append(self.udp_beacon_thread)
-        
         # Wait for threads with timeout (2 seconds per thread)
-        for thread in threads_to_join:
-            thread.join(timeout=2.0)
-        
-        # Clean up mDNS resources
-        self.cleanup_mdns()
+        self.mdns.stop()
         rumps.quit_application()
         print("Cleanup completed")
 

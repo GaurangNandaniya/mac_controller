@@ -98,7 +98,7 @@ def generate_mjpeg_stream():
 
 def create_screen_share_app():
     """Create and configure the screen share Flask app."""
-    app = Flask(__name__, template_folder='templates')
+    app = Flask(__name__, template_folder='../templates')
     CORS(app)
 
     @app.route('/')

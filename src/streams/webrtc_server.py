@@ -102,7 +102,7 @@ async def offer(request):
 
 async def index(request):
     """Serve the WebRTC HTML viewer file."""
-    html_path = os.path.join(os.path.dirname(__file__), 'templates', 'webrtc_share.html')
+    html_path = os.path.join(os.path.dirname(__file__), '../templates', 'webrtc_share.html')
     with open(html_path, "r") as f:
         content = f.read()
     return web.Response(content_type="text/html", text=content)
