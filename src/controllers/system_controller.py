@@ -71,9 +71,17 @@ def set_keyboard_light(level):
     try:
         # Ensure level is between 0 and 100
         level = max(0, min(100, level))
-        # Convert to hex (0x00 to 0xFF)
-        hex_value = hex(int((level/100) * 255))[2:]
-        os.system(f"ioreg -n AppleHSKeyboardBacklight -r -d 1 | grep -i 'brightness' | awk '{{print $3}}' | sudo ioreg -c AppleHSKeyboardBacklight -w0 -f -r -d 1 | grep -i 'brightness' | awk '{{print $3}}' | xargs -I % sudo ioreg -c AppleHSKeyboardBacklight -w0 -f -r -d 1 -w {hex_value}")
+        # macOS keyboard backlight: step down to 0 first, then step up to target
+        # Key code 107 = keyboard brightness down, 113 = keyboard brightness up
+        # 16 steps covers the full range on most Macs
+        steps = 16
+        target_steps = int((level / 100) * steps)
+        # Reset to zero
+        for _ in range(steps):
+            subprocess.run(["osascript", "-e", 'tell application "System Events" to key code 107'], capture_output=True)
+        # Step up to target
+        for _ in range(target_steps):
+            subprocess.run(["osascript", "-e", 'tell application "System Events" to key code 113'], capture_output=True)
         logger.info(f"Keyboard brightness set to {level}% successful")
         return jsonify({"status": "success"})
     except Exception as e:

@@ -14,7 +14,11 @@ load_dotenv()
 
 def create_app():
     app = Flask(__name__)
-    CORS(app, resources={r"/*": {"origins": ["http://localhost:5173",os.getenv("WEB_APP_URL")]}})
+    origins = ["http://localhost:5173"]
+    web_app_url = os.getenv("WEB_APP_URL")
+    if web_app_url:
+        origins.append(web_app_url)
+    CORS(app, resources={r"/*": {"origins": origins}})
 
     # Load config
     app.config.from_pyfile('../config.py')

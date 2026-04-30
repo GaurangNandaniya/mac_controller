@@ -1,6 +1,7 @@
 from flask import Blueprint,request
 from ..utils import setup_logger
 from src.utils.socket import get_local_ip
+from config import SERVER_PORT
 
 logger = setup_logger()
 
@@ -11,7 +12,7 @@ connections_bp = Blueprint('connections', __name__)
 def ping():
     if request.data.decode("UTF-8")=="MAC_ADDRESS_PING":
         logger.info("MAC Address ping")
-        return f"{get_local_ip()}:8080"
+        return f"{get_local_ip()}:{SERVER_PORT}"
     return ""
 
 

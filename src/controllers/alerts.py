@@ -8,6 +8,7 @@ import pyaudio
 import threading
 import numpy as np
 import wave
+import atexit
 from src.utils.auth_manager import auth_manager
 
 logger = setup_logger()
@@ -173,7 +174,6 @@ def handle_audio_stream():
         'channels': channels
     }), 200
 
-# Clean up function - you can register this with atexit in your main app
 def cleanup_audio():
     global p, stream
     if stream:
@@ -181,3 +181,5 @@ def cleanup_audio():
         stream.close()
     p.terminate()
     logger.info("Audio resources released")
+
+atexit.register(cleanup_audio)

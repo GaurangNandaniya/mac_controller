@@ -52,7 +52,7 @@ def lock_keyboard():
         keyboard_listener = keyboard.Listener(on_press=on_press, suppress=True)
         keyboard_listener.start()
         # text_to_speech("Keyboard is disabled.")
-        text_to_speech("Fuck you")
+        text_to_speech("Keyboard is disabled.")
 
 def unlock_keyboard():
     global keyboard_listener

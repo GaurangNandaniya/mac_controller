@@ -15,8 +15,13 @@ def setup_logger(name='mac_controller'):
         os.makedirs('logs')
     
     logger = logging.getLogger(name)
+
+    # Prevent duplicate handlers when multiple modules call setup_logger()
+    if logger.handlers:
+        return logger
+
     logger.setLevel(logging.INFO)
-    
+
     # File handler (rotating log files)
     file_handler = RotatingFileHandler(
         'logs/mac_controller.log',

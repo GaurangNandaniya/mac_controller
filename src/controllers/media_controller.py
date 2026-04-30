@@ -38,10 +38,10 @@ def next_track():
     try:
         keyboard.press(Key.media_next)
         keyboard.release(Key.media_next)
-        logger.info("Media previous successful")
+        logger.info("Media next successful")
         return jsonify({"status": "success"})
     except Exception as e:
-        logger.error(f"Error in previous track: {str(e)}")
+        logger.error(f"Error in next track: {str(e)}")
         return jsonify({"status": "error", "error": str(e)}), 500
 
 @media_bp.route('/volume-up', methods=['POST'])
