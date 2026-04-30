@@ -40,10 +40,7 @@ def text_to_speech(text):
         print(f"Error in text-to-speech conversion: {e}")
 
 def on_press(key):
-    print(f"Key pressed: {key}")
-    # if lock_keys:
-    #     # Swallow all key presses
-    #     return False
+    pass
 
 
 def lock_keyboard():
@@ -65,16 +62,13 @@ def unlock_keyboard():
 
 
 def on_move(x, y):
-    print(f"Mouse moved to: {x}, {y}")
-    # return False  # block move
+    pass
 
 def on_click(x, y, button, pressed):
-    print(f"Mouse clicked at: {x}, {y} with {button}, pressed: {pressed}")
-    # return False  # block clicks
+    pass
 
 def on_scroll(x, y, dx, dy):
-    print(f"Mouse scrolled at: {x}, {y} with delta: {dx}, {dy}")
-    # return False  # block scroll
+    pass
 
 
 def lock_mouse():

@@ -60,13 +60,20 @@ def handle_audio_upload():
 
 
 # Global audio variables
-p = pyaudio.PyAudio()
+p = None
 stream = None
 current_file = None
 current_sample_rate = None
 current_channels = None
 playback_lock = threading.Lock()
 file_lock = threading.Lock()
+
+def get_pyaudio():
+    """Lazy-initialize PyAudio on first use instead of at module import."""
+    global p
+    if p is None:
+        p = pyaudio.PyAudio()
+    return p
 
 # Configuration
 UPLOAD_DIR = os.path.expanduser("~/Desktop/intruders/streams")
@@ -102,7 +109,7 @@ def handle_audio_stream():
                     except:
                         logger.warning("Error closing previous stream")
                     
-                stream = p.open(
+                stream = get_pyaudio().open(
                     format=pyaudio.paInt16,
                     channels=channels,
                     rate=sample_rate,
@@ -125,7 +132,7 @@ def handle_audio_stream():
                 try:
                     stream.stop_stream()
                     stream.close()
-                    stream = p.open(
+                    stream = get_pyaudio().open(
                         format=pyaudio.paInt16,
                         channels=channels,
                         rate=sample_rate,
@@ -179,7 +186,8 @@ def cleanup_audio():
     if stream:
         stream.stop_stream()
         stream.close()
-    p.terminate()
+    if p is not None:
+        p.terminate()
     logger.info("Audio resources released")
 
 atexit.register(cleanup_audio)
