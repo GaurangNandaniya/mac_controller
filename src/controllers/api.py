@@ -7,6 +7,6 @@ api_bp = Blueprint('api', __name__)
 
 @api_bp.route('/hello', methods=['POST'])
 def ping():
-    print(request.get_data())
+    logger.info("Received API hello request")
 
     return "Hi from mac"

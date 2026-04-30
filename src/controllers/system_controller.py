@@ -18,7 +18,7 @@ system_bp.before_request(auth_manager.auth_middleware())
 @system_bp.route('/lock', methods=['POST'])
 def lock_screen():
     try:
-        os.system("pmset displaysleepnow")
+        subprocess.run(["pmset", "displaysleepnow"], capture_output=True)
         return jsonify({"status": "success"})
     except Exception as e:
         return jsonify({"status": "error", "error": str(e)}), 500
@@ -26,7 +26,7 @@ def lock_screen():
 @system_bp.route('/brightness-up', methods=['POST'])
 def brightness_up():
     try:
-        os.system('''osascript -e 'tell application "System Events" to Key Code 144' ''')  
+        subprocess.run(["osascript", "-e", 'tell application "System Events" to Key Code 144'], capture_output=True)  
         logger.info("Brightness up successful")
         return jsonify({"status": "success"})
     except Exception as e:
@@ -36,7 +36,7 @@ def brightness_up():
 @system_bp.route('/brightness-down', methods=['POST'])
 def brightness_down():
     try:
-        os.system('''osascript -e 'tell application "System Events" to Key Code 145' ''') 
+        subprocess.run(["osascript", "-e", 'tell application "System Events" to Key Code 145'], capture_output=True) 
         logger.info("Brightness down successful")
         return jsonify({"status": "success"})
     except Exception as e:
@@ -46,7 +46,7 @@ def brightness_down():
 @system_bp.route('/sleep', methods=['POST'])
 def sleep_mac():
     try:
-        os.system("pmset sleepnow")
+        subprocess.run(["pmset", "sleepnow"], capture_output=True)
         logger.info("System sleep successful")
         return jsonify({"status": "success"})
     except Exception as e:

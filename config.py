@@ -1,7 +1,9 @@
+import os
+
 # Basic configuration
 SERVER_HOST = '0.0.0.0'  # Allow external connections
 SERVER_PORT = 8080
-DEBUG_MODE = True
+DEBUG_MODE = os.environ.get('DEBUG_MODE', 'false').lower() == 'true'
 
 # Screen Share Server configuration (MJPEG)
 SCREEN_SHARE_PORT = 9090

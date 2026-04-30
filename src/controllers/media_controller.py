@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify
 from pynput.keyboard import Key, Controller
 from ..utils import setup_logger
-import os
+import subprocess
 from src.utils.auth_manager import auth_manager
 
 
@@ -71,7 +71,7 @@ def set_volume(level):
     try:
         # Ensure level is between 0 and 100
         level = max(0, min(100, level))
-        os.system(f'''osascript -e "set volume output volume {level}"''')
+        subprocess.run(["osascript", "-e", f"set volume output volume {level}"], capture_output=True)
         logger.info(f"Volume set to {level}% successful")
         return jsonify({"status": "success"})
     except Exception as e:
@@ -81,7 +81,7 @@ def set_volume(level):
 @media_bp.route('/mute', methods=['POST'])
 def toggle_mute():
     try:
-        os.system('''osascript -e "set volume output muted not (output muted of (get volume settings))"''')
+        subprocess.run(["osascript", "-e", "set volume output muted not (output muted of (get volume settings))"], capture_output=True)
         logger.info("Mute toggled successfully")
         return jsonify({"status": "success"})
     except Exception as e:

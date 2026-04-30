@@ -2,6 +2,7 @@ from flask import Blueprint, json,render_template,jsonify,request
 from ..utils import setup_logger
 import io
 import base64
+import time
 import qrcode
 from src.utils.auth_manager import auth_manager
 import socket
@@ -15,6 +16,27 @@ load_dotenv()
 logger = setup_logger()
 
 auth_bp = Blueprint('auth', __name__)
+
+# Simple rate limiting for auth endpoints
+_rate_limit = {}  # ip -> (count, window_start)
+RATE_LIMIT_MAX = 10  # max attempts per window
+RATE_LIMIT_WINDOW = 60  # seconds
+
+def _check_rate_limit():
+    """Returns error response if rate limited, None if OK."""
+    ip = request.remote_addr
+    now = time.time()
+    if ip in _rate_limit:
+        count, window_start = _rate_limit[ip]
+        if now - window_start > RATE_LIMIT_WINDOW:
+            _rate_limit[ip] = (1, now)
+        elif count >= RATE_LIMIT_MAX:
+            return jsonify({'error': 'Too many requests, try again later'}), 429
+        else:
+            _rate_limit[ip] = (count + 1, window_start)
+    else:
+        _rate_limit[ip] = (1, now)
+    return None
 
 @auth_bp.route('qr')
 def qr_auth_page():
@@ -54,8 +76,12 @@ def qr_auth_page():
 @auth_bp.route('/connect', methods=['POST'])
 def handle_qr_connection():
     """Handle connection from QR code scan"""
+    rate_error = _check_rate_limit()
+    if rate_error:
+        return rate_error
+
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
-    print(f"Received token: {token}")
+    logger.info("QR connection attempt received")
     if not token:
         return jsonify({'error': 'No token provided'}), 400
     

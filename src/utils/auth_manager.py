@@ -98,6 +98,9 @@ class AuthManager:
     
     def generate_temp_token(self, device_name="Unknown Device"):
         """Generate a temporary JWT token for QR code authentication"""
+        # Clean up expired temp tokens before adding new ones
+        self.cleanup_expired_tokens()
+
         # Create token payload
         payload = {
             'type': 'temp',
@@ -188,30 +191,20 @@ class AuthManager:
         try:
             # self.load_data()
             # Decode and verify token
+            # jwt.decode already validates expiry via the 'exp' claim
             payload = jwt.decode(token, self.secret_key, algorithms=['HS256'])
-            print("validate_permanent_token::",payload)
+
             # Check if token is a permanent token
             if payload.get('type') != 'perm':
                 return None, "Invalid token type"
-                
+
             # Check if device exists
             device_id = payload.get('device_id')
             if not device_id or device_id not in self.permanent_tokens:
                 return None, "Device not registered"
-                
-            # Check if token matches stored token
-            # if self.permanent_tokens[device_id]['token'] != token:
-            #     return None, "Token mismatch"
-                
-            # Check if token is expired
-            # if datetime.datetime.now(datetime.timezone.utc) > payload['exp']:
-            #     # Clean up expired token and device
-            #     self.revoke_device(device_id)
-            #     return None, "Token expired"
-                
-            # Update last seen time
+
+            # Update last seen time (in-memory only — disk saves happen on mutations)
             self.connected_devices[device_id]['last_seen'] = datetime.datetime.now(datetime.timezone.utc)
-            self.save_data()
             
             return payload, None
             
@@ -301,7 +294,6 @@ class AuthManager:
     def auth_middleware(self):
         """Middleware function that can be used with blueprint.before_request"""
         def middleware():
-            print("AuthManager Middleware Invoked")
             # Skip authentication for OPTIONS requests (preflight)
             if request.method == 'OPTIONS':
                 return None
