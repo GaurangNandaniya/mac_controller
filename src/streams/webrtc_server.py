@@ -1,11 +1,9 @@
 import asyncio
-import json
+import logging
 import os
 import sys
-import time
 
 import av
-import cv2
 import mss
 import numpy as np
 
@@ -16,6 +14,8 @@ from aiortc.contrib.media import MediaRelay
 # Add the parent directory to sys.path so we can import config
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import WEBRTC_SHARE_PORT, WEBRTC_FPS
+
+logger = logging.getLogger('webrtc_server')
 
 relay = MediaRelay()
 pcs = set()
@@ -79,7 +79,7 @@ async def offer(request):
 
     @pc.on("connectionstatechange")
     async def on_connectionstatechange():
-        print(f"WebRTC Connection state is {pc.connectionState}")
+        logger.info(f"WebRTC Connection state is {pc.connectionState}")
         if pc.connectionState == "failed" or pc.connectionState == "closed":
             pcs.discard(pc)
 
@@ -117,7 +117,7 @@ async def on_shutdown(app):
 
 def run_webrtc_server():
     """Entry point for the WebRTC subprocess."""
-    print(f"Starting WebRTC Screen Share server on port {WEBRTC_SHARE_PORT}...")
+    logger.info(f"Starting WebRTC Screen Share server on port {WEBRTC_SHARE_PORT}...")
     
     app = web.Application()
     app.on_shutdown.append(on_shutdown)

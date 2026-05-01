@@ -12,7 +12,7 @@ This standalone Flask server runs on its own port and streams the screen
 continuously at the highest achievable frame rate (~20-30 FPS).
 """
 
-import threading
+import logging
 import time
 import os
 import sys
@@ -26,6 +26,8 @@ from flask_cors import CORS
 # Import config
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from config import SCREEN_SHARE_PORT, SCREEN_SHARE_FPS, SCREEN_SHARE_QUALITY
+
+logger = logging.getLogger('screen_share_server')
 
 # Global stats for the /stats endpoint
 stream_stats = {
@@ -47,7 +49,7 @@ def generate_mjpeg_stream():
 
             frame_interval = 1.0 / SCREEN_SHARE_FPS
 
-            print(f"Starting optimized MJPEG capture sequence. Target FPS is {SCREEN_SHARE_FPS}")
+            logger.info(f"Starting optimized MJPEG capture sequence. Target FPS is {SCREEN_SHARE_FPS}")
 
             while True:
                 start_time = time.time()
@@ -91,9 +93,9 @@ def generate_mjpeg_stream():
                     time.sleep(sleep_time)
 
     except GeneratorExit:
-        print("Screen share client disconnected")
+        logger.info("Screen share client disconnected")
     except Exception as e:
-        print(f"Screen share error: {e}")
+        logger.error(f"Screen share error: {e}")
 
 
 def create_screen_share_app():
@@ -128,7 +130,7 @@ def create_screen_share_app():
 def run_screen_share_server():
     """Entry point to run the screen share server (called from multiprocessing)."""
     app = create_screen_share_app()
-    print(f"Pure MJPEG Screen Share server starting on port {SCREEN_SHARE_PORT}")
+    logger.info(f"Pure MJPEG Screen Share server starting on port {SCREEN_SHARE_PORT}")
     app.run(
         host='0.0.0.0',
         port=SCREEN_SHARE_PORT,
