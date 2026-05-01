@@ -69,19 +69,21 @@ def get_battery():
 @system_bp.route('/keyboard-light-set/<int:level>', methods=['POST'])
 def set_keyboard_light(level):
     try:
+        import objc
         # Ensure level is between 0 and 100
         level = max(0, min(100, level))
-        # macOS keyboard backlight: step down to 0 first, then step up to target
-        # Key code 107 = keyboard brightness down, 113 = keyboard brightness up
-        # 16 steps covers the full range on most Macs
-        steps = 16
-        target_steps = int((level / 100) * steps)
-        # Reset to zero
-        for _ in range(steps):
-            subprocess.run(["osascript", "-e", 'tell application "System Events" to key code 107'], capture_output=True)
-        # Step up to target
-        for _ in range(target_steps):
-            subprocess.run(["osascript", "-e", 'tell application "System Events" to key code 113'], capture_output=True)
+        brightness_value = level / 100.0
+
+        # Use CoreBrightness private framework (works on Apple Silicon Macs)
+        CoreBrightness = objc.loadBundle(
+            'CoreBrightness',
+            bundle_path='/System/Library/PrivateFrameworks/CoreBrightness.framework',
+            module_globals={}
+        )
+        KBClient = objc.lookUpClass('KeyboardBrightnessClient')
+        client = KBClient.alloc().init()
+        client.setBrightness_forKeyboard_(brightness_value, 1)
+
         logger.info(f"Keyboard brightness set to {level}% successful")
         return jsonify({"status": "success"})
     except Exception as e:
