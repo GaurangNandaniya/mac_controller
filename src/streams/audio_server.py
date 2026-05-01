@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 import pyaudio
@@ -8,6 +9,8 @@ from flask_cors import CORS
 # Import config
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import AUDIO_SHARE_PORT, AUDIO_SAMPLE_RATE, AUDIO_CHANNELS, AUDIO_CHUNK_SIZE
+
+logger = logging.getLogger('audio_server')
 
 app = Flask(__name__)
 CORS(app)
@@ -28,7 +31,7 @@ def audio_stream(ws):
     device_index = get_blackhole_device_index(p)
     
     if device_index is None:
-        print("Warning: BlackHole virtual audio driver not found. Falling back to default input (Microphone).")
+        logger.warning("BlackHole virtual audio driver not found. Falling back to default input (Microphone).")
         # If BlackHole isn't installed, it will just pick up the MacBook microphone as a fallback.
         
     try:
@@ -40,7 +43,7 @@ def audio_stream(ws):
             frames_per_buffer=AUDIO_CHUNK_SIZE,
             input_device_index=device_index
         )
-        print(f"Audio WS Client Connected. Streaming Int16 from device index {device_index}...")
+        logger.info(f"Audio WS Client Connected. Streaming Int16 from device index {device_index}...")
 
         while True:
             # Read raw bytes of Int16 PCM buffer
@@ -49,7 +52,7 @@ def audio_stream(ws):
             ws.send(data)
             
     except Exception as e:
-        print(f"Audio WS client disconnected or errored: {e}")
+        logger.info(f"Audio WS client disconnected or errored: {e}")
     finally:
         if 'stream' in locals() and stream.is_active():
             stream.stop_stream()
@@ -58,7 +61,7 @@ def audio_stream(ws):
 
 def run_audio_server():
     """Entry point for the dedicated audio server process."""
-    print(f"Starting Dedicated Audio WebSocket Server on port {AUDIO_SHARE_PORT}")
+    logger.info(f"Starting Dedicated Audio WebSocket Server on port {AUDIO_SHARE_PORT}")
     app.run(
         host='0.0.0.0',
         port=AUDIO_SHARE_PORT,

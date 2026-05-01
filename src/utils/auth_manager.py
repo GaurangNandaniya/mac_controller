@@ -213,19 +213,6 @@ class AuthManager:
         except jwt.InvalidTokenError:
             return None, "Invalid token"
 
-    def printCurrentInstanceData(self):
-        """Print the current instance data for debugging purposes"""
-        print("\n\n")
-        print("Permanent Tokens:")
-        for device_id, token_data in self.permanent_tokens.items():
-            print(f"  {device_id}: {token_data}")
-        print("Connected Devices:")
-        for device_id, device_data in self.connected_devices.items():
-            print(f"  {device_id}: {device_data}")
-        print("Temp tokens:")
-        for jti, token_data in self.temp_tokens.items():
-            print(f"  {jti}: {token_data}")
-
     def can_add_device(self):
         """Check if we can add a new device based on the max devices limit"""
         self.load_data()

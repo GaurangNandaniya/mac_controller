@@ -103,12 +103,12 @@ def handle_qr_connection():
     # Generate device ID
     device_id = secrets.token_urlsafe(8)
 
-    requestData = json.loads(request.get_data().decode("utf-8"))
+    request_data = json.loads(request.get_data().decode("utf-8"))
 
     
     # Generate permanent token
     perm_token = auth_manager.generate_permanent_token(
-        device_id, requestData.get('device_name', "Unknown Device")
+        device_id, request_data.get('device_name', "Unknown Device")
     )
     
     # Return a success page or redirect to the web app

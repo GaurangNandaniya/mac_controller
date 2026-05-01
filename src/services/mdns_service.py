@@ -1,7 +1,10 @@
+import logging
 import socket
 import threading
 from zeroconf import ServiceInfo, Zeroconf
 from src.utils.socket import get_local_ip
+
+logger = logging.getLogger('mdns_service')
 
 # Suppress the specific resource_tracker warning
 import warnings
@@ -87,16 +90,16 @@ class MDNSService:
                 )
                 
                 self.mdns_zeroconf.register_service(self.mdns_service_info, ttl=60, allow_name_change=True)
-                print(f"Registered mDNS: {local_ip}:{self.port}")
+                logger.info(f"Registered mDNS: {local_ip}:{self.port}")
             except Exception as e:
-                print(f"mDNS registration failed: {str(e)}")
+                logger.error(f"mDNS registration failed: {str(e)}")
 
     def _mdns_refresh_loop(self):
         while not self._stop_event.is_set():
             try:
                 self.register_mdns()
             except Exception as e:
-                print(f"Refresh loop error: {str(e)}")
+                logger.error(f"Refresh loop error: {str(e)}")
             finally:
                 self._stop_event.wait(self.mdns_refresh_interval)
 
@@ -108,7 +111,7 @@ class MDNSService:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             sock.settimeout(1)
             sock.bind(('', UDP_PORT))
-            print("UDP beacon started, waiting for discovery requests...")
+            logger.info("UDP beacon started, waiting for discovery requests...")
 
             while not self._stop_event.is_set():
                 try:
@@ -119,10 +122,10 @@ class MDNSService:
                 except socket.timeout:
                     continue
                 except Exception as e:
-                    print(f"UDP Beacon error: {e}")
+                    logger.error(f"UDP Beacon error: {e}")
                     break
         except Exception as e:
-            print(f"Failed to start UDP beacon: {e}")
+            logger.error(f"Failed to start UDP beacon: {e}")
         finally:
             try:
                 sock.close()

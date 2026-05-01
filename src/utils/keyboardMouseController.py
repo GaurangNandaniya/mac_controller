@@ -1,7 +1,10 @@
+import logging
 from pynput import keyboard,mouse
 import pyttsx3
 from threading import Thread
 import time
+
+logger = logging.getLogger('keyboardMouseController')
 
 #for keyboard locking
 keyboard_listener = None
@@ -37,7 +40,7 @@ def text_to_speech(text):
         speech_thread = Thread(target=speak_text, args=(text,))
         speech_thread.start()
     except Exception as e:
-        print(f"Error in text-to-speech conversion: {e}")
+        logger.error(f"Error in text-to-speech conversion: {e}")
 
 def on_press(key):
     pass
@@ -55,7 +58,7 @@ def unlock_keyboard():
     global keyboard_listener
 
     if keyboard_listener is not None:
-        print("keyboard_listener stopped.")
+        logger.info("keyboard_listener stopped.")
         text_to_speech("Keyboard is enabled.")
         keyboard_listener.stop()
         keyboard_listener = None
@@ -82,7 +85,7 @@ def unlock_mouse():
     global mouse_listener
 
     if mouse_listener is not None:
-        print("mouse_listener stopped.")
+        logger.info("mouse_listener stopped.")
         text_to_speech("Mouse is enabled.")
         mouse_listener.stop()
         mouse_listener = None
