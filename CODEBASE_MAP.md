@@ -63,7 +63,7 @@ mac_controller_app.py (menu bar — primary entry point)
 run.py (standalone entry point — legacy, duplicates mDNS logic)
 ```
 
-**Auth flow:** Mobile app loads `/auth/qr` → server generates temp JWT + QR code → app scans QR → POSTs to `/auth/connect` with temp token (rate-limited: 10 req/min/IP) → server validates, marks temp token used, generates permanent JWT (30-day expiry) → all subsequent requests carry permanent JWT via `auth_manager.auth_middleware()`. JWT expiry is enforced natively via `jwt.decode()`.
+**Auth flow:** Mobile app loads `/auth/qr` → server generates temp JWT + QR code → app scans QR → POSTs to `/auth/connect` with temp token (rate-limited: 10 req/min/IP) → server validates, marks temp token used, generates permanent JWT (30-day expiry) → all subsequent requests carry permanent JWT via `auth_manager.auth_middleware()`. JWT expiry is enforced natively via `jwt.decode()`. The QR's embedded `serviceUrl` uses the host's single `.local` mDNS name (`https://<hostname>.local:<port>`) — `qr_generator.py` only appends `.local` when `socket.gethostname()` doesn't already end in it, since a doubled `.local.local` name has no mDNS responder and times out (~10s) on every cold lookup. The mkcert leaf cert must therefore cover that single `.local` name.
 
 **Discovery flow:** mDNS broadcasts `_macpyctrlserver._tcp.local.` + UDP beacon on port 53535 responds to `DISCOVER_MACBOOK_SERVER` messages. The `/connections/ping` HTTP endpoint also returns `<ip>:<SERVER_PORT>` for fallback discovery.
 
@@ -81,4 +81,6 @@ run.py (standalone entry point — legacy, duplicates mDNS logic)
 - **Naming:** Snake_case throughout source. The file `keyboardMouseController.py` is camelCase but renaming would break imports — internal identifiers within it follow snake_case.
 
 ## Last Updated
+2026-06-02 — Fixed QR `serviceUrl` host: `qr_generator.py` no longer doubles the `.local` suffix (the doubled `.local.local` name had no mDNS responder, causing a ~10s cold-resolution timeout that surfaced as multi-second lag on the first command after the client sat idle). Cert regenerated for the single `.local` name.
+
 2026-05-02 — Reflects completion of all 25 audit issues: bug fixes, security hardening (subprocess everywhere, rate limiting, debug-mode env var, removed token leaks, JWT expiry enforced), perf (lazy PyAudio, no save-on-every-request, temp token cleanup), code quality (zero `print()` in src/, unused imports removed, debug methods deleted), keyboard backlight via CoreBrightness, and dependency cleanup (pyobjc trimmed from 160+ to 3 frameworks, deprecated `dotenv` wrapper removed).
