@@ -45,8 +45,12 @@ def qr_auth_page():
     # Generate a temporary token
     temp_token = auth_manager.generate_temp_token()
     
-    # Create the connection URL that will be encoded in the QR
-    service_name = f"{socket.gethostname()}.local"
+    # Create the connection URL that will be encoded in the QR.
+    # gethostname() may already include the ".local" suffix; avoid doubling it
+    # (a doubled ".local.local" name has no mDNS responder and forces a slow
+    # multi-second resolution timeout on each cold lookup).
+    hostname = socket.gethostname()
+    service_name = hostname if hostname.endswith(".local") else f"{hostname}.local"
     port = SERVER_PORT
     connection_url = f"{os.getenv("WEB_APP_URL")}/connect?token={temp_token}&&serviceUrl=https://{service_name}:{port}"
     # Generate QR code
