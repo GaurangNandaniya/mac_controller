@@ -12,7 +12,6 @@ from src.streams.audio_server import run_audio_server
 from src.utils.socket import get_local_ip
 from src.utils.auth_manager import auth_manager
 from src.utils.keyboardMouseController import unlock_keyboard, unlock_mouse
-from src.services.mdns_service import MDNSService
 from dotenv import load_dotenv
 import os
 load_dotenv()
@@ -69,8 +68,9 @@ class MacPyCtrlMenuBar(rumps.App):
         self.app = create_app()
         self.auth_obj = auth_manager
         
-        # Initialize mDNS microservice for network discovery
-        self.mdns = MDNSService(server_name="MacPyCTRLServer", port=self.app.config['SERVER_PORT'])
+        # mDNS is handled natively by macOS (Bonjour advertises <hostname>.local);
+        # the app no longer runs its own responder — that second responder churning
+        # port 5353 was wedging the phone's .local resolution on restart.
         self._stop_event = threading.Event()  # Event to signal threads to stop
         
         # Server process management
@@ -132,7 +132,7 @@ class MacPyCtrlMenuBar(rumps.App):
         print(f"""
 Server running at:
 - Local URL: http://{get_local_ip()}:{self.app.config['SERVER_PORT']}
-- mDNS Name: MacPyCTRLServer (port {self.app.config['SERVER_PORT']})
+- Reachable at <hostname>.local via macOS Bonjour (no app-level mDNS)
         """)
     def revoke_all_devices(self, sender):
         """Revoke all connected devices"""
@@ -273,9 +273,6 @@ Server running at:
         self.server_process.daemon = True  # Make it a daemon so it exits with main process
         self.server_process.start()
         
-        # Start mDNS and discovery services
-        self.mdns.start()
-        
         # Update UI to reflect running state
         self.is_server_running = True
         self.update_status("Running", "🟢")
@@ -306,9 +303,6 @@ Server running at:
             self.server_process.terminate()
             self.server_process.join(timeout=5.0)  # Wait for process to terminate
             self.server_process = None
-        
-        # Clean up mDNS registration
-        self.mdns.stop()
         
         # Update UI to reflect stopped state
         self.is_server_running = False
@@ -349,8 +343,6 @@ Server running at:
             self.webrtc_share_process.terminate()
             self.webrtc_share_process.join(timeout=2.0)
         
-        # Wait for threads with timeout (2 seconds per thread)
-        self.mdns.stop()
         rumps.quit_application()
         print("Cleanup completed")
 
