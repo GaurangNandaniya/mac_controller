@@ -55,4 +55,22 @@ HTTPS is mandatory: the server won't serve without mkcert-generated certs whose 
 - **macOS-specific quirks are intentional.** Keyboard backlight on Apple Silicon goes through Apple's private `CoreBrightness.framework` loaded at runtime (legacy key codes don't work). Don't "simplify" these into standard APIs without testing on Apple Silicon.
 - **Naming:** snake_case everywhere. `keyboardMouseController.py` is the lone camelCase filename — leave it; renaming breaks imports. Identifiers inside it are still snake_case.
 - **Dependencies are deliberately minimal.** pyobjc is pinned to only 3 frameworks (Cocoa, Quartz, ApplicationServices) — don't pull in the full pyobjc meta-package.
-- After finishing structural changes, update `CODEBASE_MAP.md` (it has a "Last Updated" log that the project keeps current).
+
+## Self-Update Protocol
+
+Before finishing a session that uncovered something non-obvious about **this project** — a gotcha, a dead-end worth not repeating, or behavior you only learned by debugging — record it. This is what stops a future session re-walking the same path (e.g. re-chasing a keep-alive server swap when mDNS is the actually-fragile layer).
+
+**Where it goes — one home per fact, never duplicate:**
+- **Project-specific** (mDNS quirks, which server/TLS choices fail on iOS, fragile areas, env gotchas) → `CODEBASE_MAP.md`:
+  - a fix or trap → *Troubleshooting / Operational Gotchas*
+  - unfinished or risky work → *Known Open Items*
+  - what changed and why → *Last Updated*
+- **Cross-project / methodology** lessons (general debugging habits) → the global `~/.claude/CLAUDE.md` *Learned Rules*, **not** here. Mixing the two scopes dilutes both.
+
+**Entry standards** (lean prompt-additives, not documentation prose):
+- *Atomic* — one insight per bullet.
+- *Dated* — `[YYYY-MM-DD]`, so stale entries can be aged out.
+- *Specific & actionable* — "Cheroot's BuiltinSSLAdapter fails iOS WebKit on the SNI/.local path; use a stdlib-`ssl` server" beats "be careful with TLS."
+- *Append, or correct with a dated note* — don't silently overwrite history.
+
+**Keep it lean.** When `CODEBASE_MAP.md` grows unwieldy, consolidate: drop superseded entries, merge duplicates, and promote a recurring gotcha into *Patterns & Conventions* as a standing rule. A bloated file gets skipped, which defeats the purpose.
