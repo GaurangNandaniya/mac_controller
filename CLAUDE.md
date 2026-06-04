@@ -58,19 +58,19 @@ HTTPS is mandatory: the server won't serve without mkcert-generated certs whose 
 
 ## Self-Update Protocol
 
-Before finishing a session that uncovered something non-obvious about **this project** — a gotcha, a dead-end worth not repeating, or behavior you only learned by debugging — record it. This is what stops a future session re-walking the same path (e.g. re-chasing a keep-alive server swap when mDNS is the actually-fragile layer).
+Claude Code has a built-in learnings loop — **auto memory** (on by default, Claude-written, machine-local) under `~/.claude/projects/<project>/memory/`, browsable with `/memory`. Don't build a parallel system; treat auto memory as the fast first-capture tier and **promote** durable learnings up so git and teammates inherit them. One home per fact — when you promote, remove the copy; never duplicate across tiers.
 
-**Where it goes — one home per fact, never duplicate:**
-- **Project-specific** (mDNS quirks, which server/TLS choices fail on iOS, fragile areas, env gotchas) → `CODEBASE_MAP.md`:
-  - a fix or trap → *Troubleshooting / Operational Gotchas*
-  - unfinished or risky work → *Known Open Items*
-  - what changed and why → *Last Updated*
-- **Cross-project / methodology** lessons (general debugging habits) → the global `~/.claude/CLAUDE.md` *Learned Rules*, **not** here. Mixing the two scopes dilutes both.
+1. **Auto memory** (`/memory`; machine-local, *not* in git) — discovered build/debug/preference notes Claude jots mid-session. Cheap and automatic.
+2. **Committed project knowledge → `CODEBASE_MAP.md`** — promote a learning here once it's durable and worth sharing (a real gotcha, a dead-end not to repeat, a fragile area). This is the team-visible, version-controlled tier:
+   - a fix or trap → *Troubleshooting / Operational Gotchas*
+   - unfinished or risky work → *Known Open Items*
+   - what changed and why → *Last Updated*
+3. **Cross-project / methodology lessons → global `~/.claude/CLAUDE.md` *Learned Rules***, not here. Mixing scopes dilutes both.
 
-**Entry standards** (lean prompt-additives, not documentation prose):
-- *Atomic* — one insight per bullet.
-- *Dated* — `[YYYY-MM-DD]`, so stale entries can be aged out.
-- *Specific & actionable* — "Cheroot's BuiltinSSLAdapter fails iOS WebKit on the SNI/.local path; use a stdlib-`ssl` server" beats "be careful with TLS."
-- *Append, or correct with a dated note* — don't silently overwrite history.
+This is what stops a future session re-walking a dead end (e.g. re-chasing a keep-alive server swap when mDNS is the actually-fragile layer).
 
-**Keep it lean.** When `CODEBASE_MAP.md` grows unwieldy, consolidate: drop superseded entries, merge duplicates, and promote a recurring gotcha into *Patterns & Conventions* as a standing rule. A bloated file gets skipped, which defeats the purpose.
+**Entry standards** — lean prompt-additives, not prose: *atomic* (one insight per bullet), *dated* `[YYYY-MM-DD]`, *specific & actionable* ("Cheroot's `BuiltinSSLAdapter` fails iOS WebKit on the SNI/`.local` path; use a stdlib-`ssl` server" beats "be careful with TLS"), *append-or-correct-with-a-dated-note* — never silently overwrite.
+
+**Keep it lean** (CLAUDE.md adherence drops past ~200 lines; bloated files get skipped): consolidate periodically — drop superseded or contradicting entries, merge duplicates, and promote a recurring gotcha into *Patterns & Conventions* as a standing rule.
+
+<!-- Maintainer note (stripped from Claude's context): these docs are guidance, not enforced. For a hard end-of-session trigger, add a Stop/PreCompact hook that prompts a reflection — see the update-config skill. -->
