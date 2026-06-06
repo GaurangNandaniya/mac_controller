@@ -65,6 +65,8 @@ run.py (standalone entry point — legacy)
 
 **Discovery flow:** macOS's own Bonjour responder advertises `<hostname>.local` → current IP on the LAN. A browser opening `https://<hostname>.local:<port>` resolves it via a plain mDNS A-record lookup that macOS answers natively — there is no app-level service record to discover. The `/connections/ping` HTTP endpoint returns `<ip>:<SERVER_PORT>` as an optional fallback.
 
+**mDNS / `.local` primer:** `.local` names are zero-config LAN hostnames (mDNS, RFC 6762; Apple's brand is "Bonjour"). The OS multicasts "who is `<name>.local`?" on UDP 5353 and the owner replies with its IP — no DNS server or config, and it auto-tracks DHCP changes. It's the same tech behind AirDrop/AirPlay, `printer.local`, Chromecast, NAS boxes, `ssh user@host.local`, etc. **Cross-platform:** any same-network client that speaks mDNS can resolve the Mac's name — macOS, Linux (avahi), iOS/Android, and **Windows 10/11** (built-in resolver; older Windows needs Apple's Bonjour service). So `ping <hostname>.local` works from another laptop, and a request works once resolution + reachability are there — but *this* app additionally requires HTTPS on the configured port, mkcert trust (or `-k`), and a JWT for protected routes (open ones: `/api/hello`, `/auth/*`, `/connections/ping`). Caveat: resolution needs the Wi-Fi to forward mDNS multicast (AP/client isolation can block it even when unicast IP works).
+
 **Keyboard backlight:** Apple Silicon Macs don't respond to traditional key codes (107/113), so `system_controller.set_keyboard_light()` uses Apple's private `CoreBrightness.framework` via `objc.loadBundle()` and the `KeyboardBrightnessClient` class with keyboard ID `1`.
 
 ## Patterns & Conventions
