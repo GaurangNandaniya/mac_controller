@@ -156,6 +156,26 @@
         }
 
         #fullscreen-hint.visible { opacity: 1; }
+
+        /* Audio enable hint (browser autoplay policy needs a user gesture) */
+        #audio-hint {
+            position: fixed;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 22px;
+            border-radius: 22px;
+            background: rgba(48, 209, 88, 0.16);
+            border: 1px solid rgba(48, 209, 88, 0.5);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            font-size: 14px;
+            color: #30d158;
+            z-index: 30;
+            cursor: pointer;
+            transition: opacity 0.4s ease;
+        }
+        #audio-hint.hidden { opacity: 0; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -192,6 +212,9 @@
 
     <!-- Fullscreen hint -->
     <div id="fullscreen-hint">Click anywhere or press F to toggle fullscreen</div>
+
+    <!-- Audio enable hint (browser autoplay policy needs a user gesture) -->
+    <div id="audio-hint">🔊 Tap anywhere to enable audio</div>
 
     <script>
         const videoImg = document.getElementById('video');
@@ -280,7 +303,22 @@
         let audioWs = null;
         let audioCtx = null;
         let nextPlayTime = 0;
-        
+        const audioHint = document.getElementById('audio-hint');
+
+        // Browsers keep the AudioContext suspended until a user gesture (autoplay policy),
+        // so ANY tap/click/key on the page enables audio — no need to go fullscreen.
+        function ensureAudioCtx() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+        function enableAudio() {
+            ensureAudioCtx();
+            if (audioCtx && audioCtx.state === 'running') audioHint.classList.add('hidden');
+        }
+        document.addEventListener('click', enableAudio);
+        document.addEventListener('touchstart', enableAudio);
+        document.addEventListener('keydown', enableAudio);
+
         function connectAudio() {
             if (audioWs) audioWs.close();
             
@@ -296,14 +334,9 @@
             };
             
             audioWs.onmessage = (event) => {
-                // Initialize Audio Context on first packet (browsers usually require user interaction, 
-                // but local websockets on localhost sometimes bypass this. Clicking fullscreen guarantees it.)
-                if (!audioCtx) {
-                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                }
-                if (audioCtx.state === 'suspended') {
-                    audioCtx.resume();
-                }
+                // Autoplay policy: the context stays suspended until a user gesture (see enableAudio()).
+                ensureAudioCtx();
+                if (audioCtx.state === 'running') audioHint.classList.add('hidden');
                 
                 const int16Buffer = new Int16Array(event.data);
                 

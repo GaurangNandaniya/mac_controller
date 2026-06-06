@@ -81,7 +81,11 @@ class MacPyCtrlMenuBar(rumps.App):
         self.screen_share_process = None
         self.audio_share_process = None
         self.is_screen_share_running = False
-        
+
+        # Audio-only share process management (also uses the 9092 audio server)
+        self.audio_only_process = None
+        self.is_audio_only_running = False
+
         # WebRTC process management
         self.webrtc_share_process = None
         self.is_webrtc_share_running = False
@@ -94,7 +98,8 @@ class MacPyCtrlMenuBar(rumps.App):
         self.qr_item = rumps.MenuItem("QR Code", callback=self.open_qr_page)
         self.camera_test_item = rumps.MenuItem("📷 Open Camera Test", callback=self.open_camera_test)
         self.screen_test_item = rumps.MenuItem("🖥️ Open Screen Test (Simple)", callback=self.open_screen_test)
-        self.screen_share_item = rumps.MenuItem("🚀 Start Advanced Screen Share (MJPEG)", callback=self.toggle_screen_share)
+        self.screen_share_item = rumps.MenuItem("🖥️ Start Screen + Audio Share", callback=self.toggle_screen_share)
+        self.audio_only_item = rumps.MenuItem("🔊 Start Audio Only Share", callback=self.toggle_audio_only)
         self.webrtc_share_item = rumps.MenuItem("🌐 Start WebRTC Share (Exp.)", callback=self.toggle_webrtc_share)
         self.revoke_all = rumps.MenuItem("Revoke All Devices", callback=self.revoke_all_devices)
         self.quit_button_item = rumps.MenuItem("Quit", callback=self.cleanup)
@@ -108,6 +113,7 @@ class MacPyCtrlMenuBar(rumps.App):
             self.camera_test_item,
             self.screen_test_item,
             self.screen_share_item,
+            self.audio_only_item,
             self.webrtc_share_item,
             None,  # separator
             self.status_item,
@@ -182,9 +188,15 @@ Server running at:
                 self.audio_share_process = None
             
             self.is_screen_share_running = False
-            self.screen_share_item.title = "🖥️ Start Screen Share (MJPEG)"
+            self.screen_share_item.title = "🖥️ Start Screen + Audio Share"
             rumps.notification("MacPyCtrl", "Screen Share Stopped", "Screen sharing has been stopped")
         else:
+            # Guard: the 9092 audio server can't run twice — Audio-Only uses the same port.
+            if self.is_audio_only_running:
+                rumps.notification("MacPyCtrl", "Stop Audio Only first",
+                                   "Audio is already streaming via 'Audio Only Share' on port 9092.")
+                return
+
             # Start screen share video
             self.screen_share_process = multiprocessing.Process(target=run_screen_share_server)
             self.screen_share_process.daemon = True
@@ -196,12 +208,41 @@ Server running at:
             self.audio_share_process.start()
             
             self.is_screen_share_running = True
-            self.screen_share_item.title = "🛑 Stop Screen Share (MJPEG)"
+            self.screen_share_item.title = "🛑 Stop Screen + Audio Share"
             
             share_url = f"http://{get_local_ip()}:{self.app.config.get('SCREEN_SHARE_PORT', 9090)}"
             rumps.notification("MacPyCtrl", "Screen Share Started",
                               f"Share this URL: {share_url}")
             print(f"Screen Share running at: {share_url}")
+
+    def toggle_audio_only(self, sender):
+        """Start or stop audio-only streaming (system audio over WebSocket on port 9092)."""
+        if self.is_audio_only_running:
+            if self.audio_only_process and self.audio_only_process.is_alive():
+                self.audio_only_process.terminate()
+                self.audio_only_process.join(timeout=5.0)
+                self.audio_only_process = None
+            self.is_audio_only_running = False
+            self.audio_only_item.title = "🔊 Start Audio Only Share"
+            rumps.notification("MacPyCtrl", "Audio Only Stopped", "Audio streaming has been stopped")
+        else:
+            # Guard: the 9092 audio server is also used by Screen + Audio Share.
+            if self.is_screen_share_running:
+                rumps.notification("MacPyCtrl", "Already streaming audio",
+                                   "Audio is already live via 'Screen + Audio Share'.")
+                return
+
+            self.audio_only_process = multiprocessing.Process(target=run_audio_server)
+            self.audio_only_process.daemon = True
+            self.audio_only_process.start()
+
+            self.is_audio_only_running = True
+            self.audio_only_item.title = "🛑 Stop Audio Only Share"
+
+            share_url = f"http://{get_local_ip()}:{self.app.config.get('AUDIO_SHARE_PORT', 9092)}"
+            rumps.notification("MacPyCtrl", "Audio Only Started",
+                               f"Open and tap to listen: {share_url}")
+            print(f"Audio Only running at: {share_url}")
 
     def toggle_webrtc_share(self, sender):
         """Start or stop the experimental WebRTC share server."""
@@ -342,7 +383,12 @@ Server running at:
         if self.webrtc_share_process and self.webrtc_share_process.is_alive():
             self.webrtc_share_process.terminate()
             self.webrtc_share_process.join(timeout=2.0)
-        
+
+        # Terminate the audio-only server if running
+        if self.audio_only_process and self.audio_only_process.is_alive():
+            self.audio_only_process.terminate()
+            self.audio_only_process.join(timeout=2.0)
+
         rumps.quit_application()
         print("Cleanup completed")
 
