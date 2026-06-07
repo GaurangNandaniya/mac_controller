@@ -24,7 +24,7 @@ mac_controller/
 │   ├── server.py              # create_app() — Flask factory, CORS, blueprint registration
 │   ├── controllers/
 │   │   ├── media_controller.py    # /media/* — play/pause, next/prev, volume, arrow keys
-│   │   ├── system_controller.py   # /system/* — lock, sleep, brightness, battery, capture, kb/mouse lock
+│   │   ├── system_controller.py   # /system/* — lock, sleep, brightness, battery, capture, kb/mouse lock, keyboardType (remote text/keys)
 │   │   ├── stream_controller.py   # /system/camera/stream, /system/screen/stream (MJPEG)
 │   │   ├── alerts.py              # /alerts/* — audio upload, real-time audio stream playback
 │   │   ├── connections.py         # /connections/ping — discovery ping response
@@ -92,6 +92,8 @@ run.py (standalone entry point — legacy)
 - **Single-instance (minor now).** With the mDNS responder and UDP beacon gone, a second instance just fails to bind port 8080 — no longer wedges discovery. Still cleanest to `pkill -f mac_controller_app` before relaunching.
 
 ## Last Updated
+2026-06-07 — Added **remote keyboard typing** (`POST /system/keyboardType`: `{text}` types a string, `{key}` presses enter/backspace/tab/delete/esc/space/arrows via pynput) and a matching "Keyboard Type" UI in the web app. Also made the web app **auto-poll battery every 60s** (`/system/battery`) instead of only on a manual tap. ToDo.txt reconciled (items 1–5, 10 done; 6–9 remain).
+
 2026-06-06 — Added audio streaming menu options: **"Screen + Audio Share"** (relabel; already started both servers) and a new **"Audio Only Share"** (`toggle_audio_only` → just the 9092 audio server). `audio_server.py` now serves a standalone tap-to-start player page at `GET /`. Added tap-anywhere-to-enable-audio + hint to the screen-share page (autoplay policy; no longer needs fullscreen). Lowered `AUDIO_CHUNK_SIZE` 2048→1024 (~21ms). Port-9092 mutual-exclusion guard between the two audio modes. Verified on laptop + iPhone — the iOS "no sound" turned out to be the phone's silent switch (mutes Web Audio), not code.
 
 2026-06-04 — **Fixed the recurring iOS `.local` wedge by removing the app's mDNS responder.** Deleted `src/services/mdns_service.py` (python-zeroconf + UDP beacon), stripped the duplicated inline mDNS from `run.py`, removed all `MDNSService` usage from `mac_controller_app.py`, and dropped the `zeroconf` dependency (net −256 lines). Root cause: a second mDNS responder on port 5353 (with a 60s rebuild loop and a malformed `.local.local` record) thrashed iOS's resolver; macOS Bonjour already advertises `<hostname>.local` natively, so the responder was pure liability. Verified: `.local` survives repeated app restarts on the iPhone with **no** `killall -HUP mDNSResponder` flush. (Diagnosis cross-checked with Gemini; web app is the only client and the beacon was unused.)

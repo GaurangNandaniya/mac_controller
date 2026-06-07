@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 import os
 import re
 from ..utils import setup_logger
@@ -8,8 +8,20 @@ import time
 from datetime import datetime
 from src.utils.auth_manager import auth_manager
 from src.utils.keyboardMouseController import lock_keyboard, unlock_keyboard, lock_mouse, unlock_mouse
+from pynput.keyboard import Key, Controller
 
 logger = setup_logger()
+
+# Shared keyboard controller for remote typing (/system/keyboardType)
+_keyboard = Controller()
+
+# Named special keys the client can send via {"key": "..."}
+SPECIAL_KEYS = {
+    "enter": Key.enter, "return": Key.enter,
+    "backspace": Key.backspace, "delete": Key.delete,
+    "tab": Key.tab, "escape": Key.esc, "esc": Key.esc, "space": Key.space,
+    "up": Key.up, "down": Key.down, "left": Key.left, "right": Key.right,
+}
 
 
 system_bp = Blueprint('system', __name__)
@@ -178,4 +190,34 @@ def mouse_lock():
 def mouse_unlock():
     unlock_mouse()
     return jsonify({"status": "success", "message": "mouse unlocked"})
+
+@system_bp.route('/keyboardType', methods=['POST'])
+def keyboard_type():
+    """Type text, or press a named special key, at the Mac's current keyboard focus.
+
+    Body: {"text": "hello"}  OR  {"key": "enter"|"backspace"|"tab"|...}
+    Typed text lands wherever the Mac's focus is.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        key = data.get("key")
+        text = data.get("text")
+
+        if key:
+            mapped = SPECIAL_KEYS.get(str(key).lower())
+            if mapped is None:
+                return jsonify({"status": "error", "error": f"Unknown key: {key}"}), 400
+            _keyboard.press(mapped)
+            _keyboard.release(mapped)
+            logger.info(f"Remote keyboard key pressed: {key}")
+        elif text is not None:
+            _keyboard.type(str(text))
+            logger.info(f"Remote keyboard typed {len(str(text))} chars")
+        else:
+            return jsonify({"status": "error", "error": "Provide 'text' or 'key'"}), 400
+
+        return jsonify({"status": "success"})
+    except Exception as e:
+        logger.error(f"Error in keyboardType: {str(e)}")
+        return jsonify({"status": "error", "error": str(e)}), 500
 
