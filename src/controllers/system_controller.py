@@ -23,6 +23,22 @@ SPECIAL_KEYS = {
     "up": Key.up, "down": Key.down, "left": Key.left, "right": Key.right,
 }
 
+# macOS virtual key codes for non-printable keys + modifiers (for /system/pressKey)
+KEY_CODES = {
+    "esc": 53, "tab": 48, "return": 36, "enter": 36, "delete": 51, "backspace": 51,
+    "forwarddelete": 117, "space": 49, "caps": 57,
+    "left": 123, "right": 124, "down": 125, "up": 126,
+    "f1": 122, "f2": 120, "f3": 99, "f4": 118, "f5": 96, "f6": 97, "f7": 98,
+    "f8": 100, "f9": 101, "f10": 109, "f11": 103, "f12": 111,
+    "cmd": 55, "option": 58, "ctrl": 59, "shift": 56,
+}
+
+# Modifier name -> AppleScript phrase
+MODIFIER_PHRASES = {
+    "cmd": "command down", "option": "option down",
+    "ctrl": "control down", "shift": "shift down",
+}
+
 
 system_bp = Blueprint('system', __name__)
 system_bp.before_request(auth_manager.auth_middleware())
@@ -219,5 +235,41 @@ def keyboard_type():
         return jsonify({"status": "success"})
     except Exception as e:
         logger.error(f"Error in keyboardType: {str(e)}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+@system_bp.route('/pressKey', methods=['POST'])
+def press_key():
+    """Press a key (optionally with modifiers) on the Mac via macOS System Events.
+
+    Body: {"key": "c", "modifiers": ["cmd", "shift"]}
+      - key: a single printable char ("c", "1", "/") OR a named key in KEY_CODES.
+      - modifiers: any of cmd/option/ctrl/shift (optional).
+    osascript handles ALL modifiers reliably (unlike pynput's option/ctrl on macOS).
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        key = data.get("key")
+        modifiers = data.get("modifiers") or []
+
+        if not isinstance(key, str) or key == "":
+            return jsonify({"status": "error", "error": "Missing 'key'"}), 400
+
+        phrases = [MODIFIER_PHRASES[m] for m in modifiers if m in MODIFIER_PHRASES]
+        using = f" using {{{', '.join(phrases)}}}" if phrases else ""
+
+        if key.lower() in KEY_CODES:
+            action = f"key code {KEY_CODES[key.lower()]}{using}"
+        elif len(key) == 1:
+            ch = key.replace("\\", "\\\\").replace('"', '\\"')  # escape for the AppleScript string literal
+            action = f'keystroke "{ch}"{using}'
+        else:
+            return jsonify({"status": "error", "error": f"Unknown key: {key}"}), 400
+
+        script = f'tell application "System Events" to {action}'
+        subprocess.run(["osascript", "-e", script], capture_output=True)
+        logger.info(f"pressKey: {modifiers}+{key}")
+        return jsonify({"status": "success"})
+    except Exception as e:
+        logger.error(f"Error in pressKey: {str(e)}")
         return jsonify({"status": "error", "error": str(e)}), 500
 
