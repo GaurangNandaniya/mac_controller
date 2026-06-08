@@ -1,10 +1,11 @@
 1. Key board lock un-lock - done
 2. Touch pad lock un-lock - done
 3. 📷 Live camera feed — Stream live webcam video over HTTP (MJPEG or WebSocket) - done
-4. 🖥️ Live screen feed — Stream the display in real-time - done (MJPEG + system audio + experimental WebRTC)
-5. ⌨️ Remote keyboard type — Send keystrokes/text to type remotely - done (POST /system/keyboardType + web app "Keyboard Type" UI)
+4. 🖥️ Live screen feed — Stream the display in real-time - done (MJPEG + system audio + experimental WebRTC) - done
+5. ⌨️ Remote keyboard type — Send keystrokes/text to type remotely - done (POST /system/keyboardType + web app "Keyboard Type" UI) - done
 6. 🖱️ Mouse move/click control — Move cursor and click via API
 7. 📂 File browser — Browse and download files remotely
 8. 🔔 Push notifications — Send macOS notifications remotely
 9. 📊 System stats — CPU, RAM, disk usage endpoint
 10.🔋 Battery status polling — Real-time battery level - done (web app auto-polls /system/battery every 60s)
+11.⌨️ Full keyboard + key combos — web UI (Input tab) with a real keyboard, plus a NEW server route to PRESS keys/combos (distinct from /system/keyboardType text typing): modifiers (cmd/option/ctrl/shift) + a key, and standalone keys (F, M, function keys). e.g. cmd+key, option+key, single F.
