@@ -255,6 +255,11 @@ def press_key():
             return jsonify({"status": "error", "error": "Missing 'key'"}), 400
 
         phrases = [MODIFIER_PHRASES[m] for m in modifiers if m in MODIFIER_PHRASES]
+        # If the key itself is a modifier (pressing a modifier on its own), carry its own
+        # flag too — otherwise the synthetic `key code` event has no modifier flag and
+        # apps/pages don't register it as that modifier (e.g. ⌘ alone wouldn't show as Meta).
+        if key.lower() in MODIFIER_PHRASES and MODIFIER_PHRASES[key.lower()] not in phrases:
+            phrases.append(MODIFIER_PHRASES[key.lower()])
         using = f" using {{{', '.join(phrases)}}}" if phrases else ""
 
         if key.lower() in KEY_CODES:
