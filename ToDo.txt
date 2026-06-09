@@ -8,4 +8,4 @@
 8. 🔔 Push notifications — Send macOS notifications remotely
 9. 📊 System stats — CPU, RAM, disk usage endpoint
 10.🔋 Battery status polling — Real-time battery level - done (web app auto-polls /system/battery every 60s)
-11.⌨️ Full keyboard + key combos — web UI (Input tab) with a real keyboard, plus a NEW server route to PRESS keys/combos (distinct from /system/keyboardType text typing): modifiers (cmd/option/ctrl/shift) + a key, and standalone keys (F, M, function keys). e.g. cmd+key, option+key, single F.
+11.⌨️ Full keyboard + key combos — web UI (Input tab) with a real keyboard, plus a NEW server route to PRESS keys/combos (distinct from /system/keyboardType text typing): modifiers (cmd/option/ctrl/shift) + a key, and standalone keys (F, M, function keys). e.g. cmd+key, option+key, single F. - done (POST /system/pressKey via System Events + collapsible on-screen keyboard; "press modifier alone" dropped — macOS has no action for it)
