@@ -52,6 +52,7 @@ def run_flask_server():
         port=app.config['SERVER_PORT'],
         debug=app.config['DEBUG_MODE'],
         use_reloader=False,  # Disable reloader to avoid subprocess issues.
+        threaded=True,       # serve the mouse WebSocket alongside HTTP requests
         ssl_context=(os.getenv("CERTIFICATE_PATH"), os.getenv("PRIVATE_KEY_PATH"))
     )
 

@@ -8,6 +8,8 @@ from src.controllers.alerts import alerts_bp
 from src.controllers.api import api_bp
 from src.controllers.qr_generator import auth_bp
 from flask_cors import CORS
+from flask_sock import Sock
+from src.controllers.mouse_controller import register_mouse_ws
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -31,5 +33,8 @@ def create_app():
     app.register_blueprint(alerts_bp, url_prefix='/alerts')
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(auth_bp, url_prefix='/auth')
+
+    sock = Sock(app)
+    register_mouse_ws(sock)
 
     return app
