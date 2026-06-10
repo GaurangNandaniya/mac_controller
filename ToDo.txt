@@ -3,7 +3,7 @@
 3. 📷 Live camera feed — Stream live webcam video over HTTP (MJPEG or WebSocket) - done
 4. 🖥️ Live screen feed — Stream the display in real-time - done (MJPEG + system audio + experimental WebRTC) - done
 5. ⌨️ Remote keyboard type — Send keystrokes/text to type remotely - done (POST /system/keyboardType + web app "Keyboard Type" UI) - done
-6. 🖱️ Mouse move/click control — Move cursor and click via API
+6. 🖱️ Mouse move/click control — Move cursor and click via API - done (WS /system/mouse_ws via flask-sock + pynput mouse; web "Mouse" tab trackpad: move/click/scroll/drag + pointer-speed)
 7. 📂 File browser — Browse and download files remotely
 8. 🔔 Push notifications — Send macOS notifications remotely
 9. 📊 System stats — CPU, RAM, disk usage endpoint
