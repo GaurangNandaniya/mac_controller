@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A macOS remote-control server that lets a phone/web client control a MacBook over the local network (media, volume, brightness, keyboard backlight, screen/camera/audio streaming, keyboard-mouse lock, and a "capture-and-lock" intruder defense). It runs as a menu bar app, pairs clients via QR + JWT, and advertises itself over mDNS. The companion client lives in a separate repo (`mac-control-web-app`).
+A macOS remote-control server that lets a phone/web client control a MacBook over the local network (media, volume, brightness, keyboard backlight, screen/camera/audio streaming, keyboard-mouse lock, and a "capture-and-lock" intruder defense). It runs as a menu bar app, pairs clients via QR + JWT, and advertises itself over mDNS. The companion client lives in the sibling `../client` folder (GitHub repo `mac-control-web-app`).
 
 There is a deeper architectural reference in **`CODEBASE_MAP.md`** — read it for module-by-module detail, the auth/discovery flow internals, and the rationale behind macOS-specific workarounds. This file is the quick-start; that file is the map.
 
