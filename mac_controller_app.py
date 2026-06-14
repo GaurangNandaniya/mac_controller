@@ -3,7 +3,6 @@ import webbrowser
 import rumps #https://rumps.readthedocs.io/en/latest/index.html
 import atexit
 import signal
-import warnings
 import multiprocessing
 from src.server import create_app
 from src.streams.screen_share_server import run_screen_share_server
