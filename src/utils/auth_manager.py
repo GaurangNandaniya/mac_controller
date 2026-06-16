@@ -8,20 +8,6 @@ from flask import request, jsonify
 from dotenv import load_dotenv
 load_dotenv()
 
-# Paths a scoped Apple Watch token (type 'watch') is allowed to hit. Anything not
-# matched here is denied (403) for watch tokens. Keep in sync with the controllers:
-# media is the whole /media/* blueprint; lock/sleep/capture-and-lock live under /system.
-WATCH_ALLOWED_EXACT = {"/system/lock", "/system/sleep", "/system/capture-and-lock"}
-WATCH_ALLOWED_PREFIXES = ("/media/",)
-
-
-def is_watch_path_allowed(path):
-    """True if a scoped watch token may access this request path."""
-    if path in WATCH_ALLOWED_EXACT:
-        return True
-    return any(path.startswith(prefix) for prefix in WATCH_ALLOWED_PREFIXES)
-
-
 class AuthManager:
     def __init__(self, app=None, data_file_path="auth_data.json"):
         self.app = app
@@ -197,31 +183,9 @@ class AuthManager:
         
         # Save to persistent storage
         self.save_data()
-
+        
         return token
-
-    def generate_watch_token(self, device_name="Apple Watch", expiry_days=None):
-        """Generate a scoped, long-lived token for Apple Watch / Apple Shortcuts.
-
-        - Scope is limited to media + lock/sleep/capture-and-lock (enforced in the
-          middleware via is_watch_path_allowed); it cannot drive anything else.
-        - expiry_days=None -> no expiry (jwt.decode won't enforce a missing 'exp').
-        - Validation is *stateless* (signature + type only): the token is NOT stored
-          in permanent_tokens/connected_devices, so 'Revoke All Devices' does not
-          affect it. Rotating AUTH_SECRET_KEY is the way to invalidate it.
-        """
-        payload = {
-            'type': 'watch',
-            'device_id': 'apple-watch',
-            'device_name': device_name,
-            'iat': datetime.datetime.now(datetime.timezone.utc),
-            'jti': secrets.token_urlsafe(16)
-        }
-        if expiry_days is not None:
-            payload['exp'] = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=expiry_days)
-
-        return jwt.encode(payload, self.secret_key, algorithm='HS256')
-
+    
     def validate_permanent_token(self, token):
         """Validate a permanent token and return its payload if valid"""
         try:
@@ -229,13 +193,6 @@ class AuthManager:
             # Decode and verify token
             # jwt.decode already validates expiry via the 'exp' claim
             payload = jwt.decode(token, self.secret_key, algorithms=['HS256'])
-
-            # Scoped Apple Watch token: validity is signature + (optional) expiry,
-            # already enforced by jwt.decode above. Intentionally independent of
-            # permanent_tokens/connected_devices so 'Revoke All Devices' can't kill
-            # it. Endpoint scope is enforced by the caller via is_watch_path_allowed.
-            if payload.get('type') == 'watch':
-                return payload, None
 
             # Check if token is a permanent token
             if payload.get('type') != 'perm':
@@ -313,15 +270,11 @@ class AuthManager:
             payload, error = self.validate_permanent_token(token)
             if error:
                 return jsonify({'error': error}), 401
-
-            # Scoped watch token: only allowed on an explicit path allowlist.
-            if payload.get('type') == 'watch' and not is_watch_path_allowed(request.path):
-                return jsonify({'error': 'Token not permitted for this endpoint'}), 403
-
+                
             # Add device info to request context
             request.device_id = payload['device_id']
             request.device_name = payload['device_name']
-
+            
             return f(*args, **kwargs)
         return decorated_function
     
@@ -348,15 +301,11 @@ class AuthManager:
             payload, error = self.validate_permanent_token(token)
             if error:
                 return jsonify({'error': error}), 401
-
-            # Scoped watch token: only allowed on an explicit path allowlist.
-            if payload.get('type') == 'watch' and not is_watch_path_allowed(request.path):
-                return jsonify({'error': 'Token not permitted for this endpoint'}), 403
-
+                
             # Add device info to request context
             request.device_id = payload['device_id']
             request.device_name = payload['device_name']
-
+            
             return None
         
         return middleware
