@@ -16,9 +16,10 @@ def register_mouse_ws(sock):
     def mouse_ws(ws):
         # Auth via ?token= (a browser WebSocket can't set an Authorization header).
         token = request.args.get("token", "")
-        _, err = auth_manager.validate_permanent_token(token)
-        if err:
-            logger.info(f"mouse_ws rejected: {err}")
+        payload, err = auth_manager.validate_permanent_token(token)
+        # Mouse control is out of scope for the watch token.
+        if err or payload.get("type") == "watch":
+            logger.info(f"mouse_ws rejected: {err or 'watch token not permitted'}")
             return  # closes the socket
 
         logger.info("mouse_ws connected")
