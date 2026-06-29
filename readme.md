@@ -16,7 +16,11 @@ Idempotent and non-destructive — it installs system deps (`mkcert`, `nss`, `po
 WEB_APP_URL=https://my-deployment.com MAX_DEVICES=3 ./setup.sh
 ```
 
-When it finishes, follow the printed steps (trust the mkcert root CA on your iPhone, then start the server). The manual steps below are kept for reference / troubleshooting.
+When it finishes, follow the printed steps (install the mkcert root CA on your iPhone **and enable Full Trust** — installing the profile alone is not enough — then start the server). The manual steps below are kept for reference / troubleshooting.
+
+> **iOS Full Trust is required.** After AirDropping `rootCA.pem` and installing the profile, you must also turn it on under **Settings → General → About → Certificate Trust Settings**, or HTTPS stays untrusted ("connection is not private").
+
+> **Multiple Macs:** each Mac has its own CA, so install + Full-Trust each Mac's `rootCA.pem` on the phone. The web app's device switcher then hops between them.
 
 ## Prerequisites
 

@@ -97,11 +97,17 @@ CAROOT="$(mkcert -CAROOT 2>/dev/null || echo '<run: mkcert -CAROOT>')"
 printf "\n\033[1;32mSetup complete.\033[0m\n\n"
 cat <<DONE
 Next steps:
-  1. Trust the mkcert root CA on your iPhone (one-time, needed for HTTPS):
+  1. Install the mkcert root CA on your iPhone:
        • rootCA.pem is here:  $CAROOT/rootCA.pem
-       • AirDrop it to the iPhone, then install the profile
-       • Settings → General → About → Certificate Trust Settings → turn on Full Trust for "mkcert …"
-  2. Start the server:
+       • AirDrop it to the iPhone → install the profile (Settings → Profile Downloaded → Install)
+
+  2. ENABLE FULL TRUST  ← required, and easy to miss. Installing the profile
+     in step 1 is NOT enough on its own; HTTPS stays untrusted until you do this:
+       • Settings → General → About → Certificate Trust Settings
+       • Turn ON "Full Trust" for the "mkcert …" certificate
+
+  3. Start the server:
        source venv/bin/activate && python3 mac_controller_app.py
-  3. Open the menu-bar QR and scan it from the web app to pair.
+
+  4. Open the menu-bar QR and scan it from the web app to pair.
 DONE
