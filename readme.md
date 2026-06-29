@@ -2,6 +2,22 @@
 
 A dual-implementation server (Python/Flask and Rust/Actix) providing remote control capabilities for your Mac, including media control, system management, and security features.
 
+## Quick setup (recommended)
+
+On a fresh Mac, from the repo root:
+
+```bash
+./setup.sh
+```
+
+Idempotent and non-destructive — it installs system deps (`mkcert`, `nss`, `portaudio`), the mkcert local CA, a Python venv with all requirements, generates TLS certs (`cert.pem`/`key.pem`) covering your `<hostname>.local`, and writes a `.env` with a random `AUTH_SECRET_KEY`. Re-running never overwrites an existing `.env`, venv, or certs. Override defaults with env vars:
+
+```bash
+WEB_APP_URL=https://my-deployment.com MAX_DEVICES=3 ./setup.sh
+```
+
+When it finishes, follow the printed steps (trust the mkcert root CA on your iPhone, then start the server). The manual steps below are kept for reference / troubleshooting.
+
 ## Prerequisites
 
 ### Python Implementation
