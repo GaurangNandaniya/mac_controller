@@ -9,11 +9,15 @@ from datetime import datetime
 from src.utils.auth_manager import auth_manager
 from src.utils.keyboardMouseController import lock_keyboard, unlock_keyboard, lock_mouse, unlock_mouse
 from pynput.keyboard import Key, Controller
+from pynput.mouse import Button, Controller as MouseController
+import mss
 
 logger = setup_logger()
 
 # Shared keyboard controller for remote typing (/system/keyboardType)
 _keyboard = Controller()
+# Shared mouse controller for tap-to-click on the screen stream (/system/mouse-click)
+_mouse = MouseController()
 
 # Named special keys the client can send via {"key": "..."}
 SPECIAL_KEYS = {
@@ -235,6 +239,32 @@ def keyboard_type():
         return jsonify({"status": "success"})
     except Exception as e:
         logger.error(f"Error in keyboardType: {str(e)}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+@system_bp.route('/mouse-click', methods=['POST'])
+def mouse_click():
+    """Tap-to-click on the screen stream. Body: {"rx": 0..1, "ry": 0..1}.
+    Maps the normalized point onto the primary monitor (logical points, matching
+    the MJPEG stream's coordinate space) and left-clicks there.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        rx = float(data.get("rx", -1))
+        ry = float(data.get("ry", -1))
+        if not (0.0 <= rx <= 1.0 and 0.0 <= ry <= 1.0):
+            return jsonify({"status": "error", "error": "rx/ry must be between 0 and 1"}), 400
+
+        with mss.mss() as sct:
+            mon = sct.monitors[1]  # primary monitor (logical size)
+            x = mon["left"] + rx * mon["width"]
+            y = mon["top"] + ry * mon["height"]
+
+        _mouse.position = (x, y)
+        _mouse.click(Button.left, 1)
+        logger.info(f"mouse-click at ({x:.0f}, {y:.0f})")
+        return jsonify({"status": "success"})
+    except Exception as e:
+        logger.error(f"Error in mouse-click: {str(e)}")
         return jsonify({"status": "error", "error": str(e)}), 500
 
 @system_bp.route('/pressKey', methods=['POST'])

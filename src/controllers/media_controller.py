@@ -11,6 +11,50 @@ media_bp = Blueprint('media', __name__)
 media_bp.before_request(auth_manager.auth_middleware())
 keyboard = Controller()
 
+
+def _run_osa(script):
+    """Run an AppleScript and return trimmed stdout (empty string on failure)."""
+    try:
+        r = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
+        return r.stdout.strip()
+    except Exception:
+        return ""
+
+
+# Best-effort now-playing. One script per app, run independently: referencing an
+# app's dictionary (e.g. Spotify) fails to COMPILE if that app isn't installed,
+# which would otherwise kill a combined script — so keep them separate and let an
+# uninstalled app just yield "". Guarded by `is running` so it never launches one.
+# (Generic system-wide now-playing needs the private MediaRemote framework.)
+_NOW_PLAYING_SCRIPTS = [
+    '''
+if application "Spotify" is running then
+    tell application "Spotify"
+        if player state is playing then return "Spotify|" & (name of current track) & "|" & (artist of current track)
+    end tell
+end if
+return ""
+''',
+    '''
+if application "Music" is running then
+    tell application "Music"
+        if player state is playing then return "Music|" & (name of current track) & "|" & (artist of current track)
+    end tell
+end if
+return ""
+''',
+]
+
+
+def _now_playing():
+    for script in _NOW_PLAYING_SCRIPTS:
+        out = _run_osa(script)
+        if out:
+            parts = out.split("|")
+            if len(parts) >= 3:
+                return {"playing": True, "app": parts[0], "track": parts[1], "artist": parts[2]}
+    return {"playing": False, "app": None, "track": None, "artist": None}
+
 @media_bp.route('/play-pause', methods=['POST'])
 def play_pause():
     try:
@@ -130,4 +174,22 @@ def arrow_right():
         return jsonify({"status": "success"})
     except Exception as e:
         logger.error(f"Error pressing arrow right: {str(e)}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+@media_bp.route('/status', methods=['POST'])
+def media_status():
+    """Current output volume + mute, plus best-effort now-playing (Spotify/Music)."""
+    try:
+        vol_raw = _run_osa("output volume of (get volume settings)")
+        muted_raw = _run_osa("output muted of (get volume settings)")
+        volume = int(vol_raw) if vol_raw.lstrip("-").isdigit() else None
+
+        return jsonify({
+            "status": "success",
+            "volume": volume,
+            "muted": muted_raw == "true",
+            "nowPlaying": _now_playing(),
+        })
+    except Exception as e:
+        logger.error(f"Error in media status: {str(e)}")
         return jsonify({"status": "error", "error": str(e)}), 500    

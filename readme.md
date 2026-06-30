@@ -258,6 +258,11 @@ The Rust server will:
   - Toggles mute
   - Response: `{"status": "success"}`
 
+- `POST /media/status`
+  - Current output volume + mute, plus best-effort now-playing.
+  - Response: `{"status": "success", "volume": <0-100|null>, "muted": <bool>, "nowPlaying": {"playing": <bool>, "app": <str|null>, "track": <str|null>, "artist": <str|null>}}`
+  - **Now-playing support:** **Spotify and Apple Music desktop apps only.** System-wide now-playing (e.g. media in Chrome/Safari, YouTube, web players) is **not** available — it requires Apple's private MediaRemote framework, which is locked down on macOS 15.4+. Volume/mute always work.
+
 ### System Control
 
 - `POST /system/lock`
@@ -293,6 +298,10 @@ The Rust server will:
 - `POST /system/capture-and-lock`
   - Takes screenshot and webcam photo, then locks the system
   - Saves files to `~/Desktop/intruders/session_<timestamp>/`
+  - Response: `{"status": "success"}`
+
+- `POST /system/mouse-click`
+  - Tap-to-click on the screen stream. Body: `{"rx": 0..1, "ry": 0..1}` (normalized point on the primary monitor). Left-clicks at the mapped location.
   - Response: `{"status": "success"}`
 
 ### Alerts
