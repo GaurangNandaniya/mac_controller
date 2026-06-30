@@ -331,6 +331,13 @@ The Rust server will:
     - `X-Channels`: Number of channels (default: 1)
   - Response: `{"status": "processed", "filename": <filename>, "sample_rate": <rate>, "channels": <channels>}`
 
+### Files (shared folder `~/Desktop/MacController`)
+
+- `POST /files/upload` — phone → Mac. Multipart form with a `file` field. Won't overwrite (timestamps duplicate names). Response: `{"status": "success", "name": "<saved-name>"}`.
+- `POST /files/list` — files in the shared folder, newest first. Response: `{"status": "success", "files": [{"name", "size", "mtime"}]}`.
+- `GET /files/download?name=<file>&token=<jwt>` — Mac → phone (served as an attachment). Path-traversal guarded.
+- `POST /files/delete` — remove a file. Body: `{"name": "..."}`.
+
 ### Connections
 
 - `POST /connections/ping`

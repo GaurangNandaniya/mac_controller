@@ -6,6 +6,7 @@ from src.controllers.stream_controller import stream_bp
 from src.controllers.connections import connections_bp
 from src.controllers.alerts import alerts_bp
 from src.controllers.api import api_bp
+from src.controllers.files import files_bp
 from src.controllers.qr_generator import auth_bp
 from flask_cors import CORS
 from flask_sock import Sock
@@ -32,6 +33,7 @@ def create_app():
     app.register_blueprint(connections_bp, url_prefix='/connections')
     app.register_blueprint(alerts_bp, url_prefix='/alerts')
     app.register_blueprint(api_bp, url_prefix='/api')
+    app.register_blueprint(files_bp, url_prefix='/files')
     app.register_blueprint(auth_bp, url_prefix='/auth')
 
     sock = Sock(app)
