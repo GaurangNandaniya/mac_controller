@@ -1,6 +1,7 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, send_file
 import os
 import re
+import shutil
 from ..utils import setup_logger
 import cv2
 import subprocess
@@ -240,6 +241,67 @@ def keyboard_type():
     except Exception as e:
         logger.error(f"Error in keyboardType: {str(e)}")
         return jsonify({"status": "error", "error": str(e)}), 500
+
+_INTRUDERS_BASE = os.path.realpath(os.path.expanduser("~/Desktop/intruders"))
+
+
+def _intruder_path(*parts):
+    """Resolve a path inside the intruders dir, or None if it escapes it."""
+    target = os.path.realpath(os.path.join(_INTRUDERS_BASE, *parts))
+    if target == _INTRUDERS_BASE or target.startswith(_INTRUDERS_BASE + os.sep):
+        return target
+    return None
+
+
+@system_bp.route('/intruders/list', methods=['POST'])
+def intruders_list():
+    """List capture sessions from ~/Desktop/intruders (newest first)."""
+    try:
+        sessions = []
+        if os.path.isdir(_INTRUDERS_BASE):
+            for name in sorted(os.listdir(_INTRUDERS_BASE), reverse=True):
+                sdir = os.path.join(_INTRUDERS_BASE, name)
+                if not name.startswith("session_") or not os.path.isdir(sdir):
+                    continue
+                files = os.listdir(sdir)
+                sessions.append({
+                    "id": name,
+                    "timestamp": name.replace("session_", ""),
+                    "screenshot": "screenshot.png" if "screenshot.png" in files else None,
+                    "webcam": "webcam.jpg" if "webcam.jpg" in files else None,
+                })
+        return jsonify({"status": "success", "sessions": sessions})
+    except Exception as e:
+        logger.error(f"Error listing intruders: {str(e)}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+
+@system_bp.route('/intruders/file', methods=['GET'])
+def intruders_file():
+    """Serve a capture image. Query: session, name, token (for <img> auth)."""
+    session = os.path.basename(request.args.get("session", ""))
+    name = os.path.basename(request.args.get("name", ""))
+    target = _intruder_path(session, name)
+    if not target or not os.path.isfile(target):
+        return jsonify({"status": "error", "error": "not found"}), 404
+    return send_file(target)
+
+
+@system_bp.route('/intruders/delete', methods=['POST'])
+def intruders_delete():
+    """Delete a capture session folder."""
+    try:
+        session = os.path.basename((request.get_json(silent=True) or {}).get("session", ""))
+        target = _intruder_path(session)
+        if not target or target == _INTRUDERS_BASE or not os.path.isdir(target):
+            return jsonify({"status": "error", "error": "not found"}), 404
+        shutil.rmtree(target)
+        logger.info(f"Deleted intruder session {session}")
+        return jsonify({"status": "success"})
+    except Exception as e:
+        logger.error(f"Error deleting intruder session: {str(e)}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
 
 @system_bp.route('/mouse-click', methods=['POST'])
 def mouse_click():

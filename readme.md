@@ -304,6 +304,17 @@ The Rust server will:
   - Tap-to-click on the screen stream. Body: `{"rx": 0..1, "ry": 0..1}` (normalized point on the primary monitor). Left-clicks at the mapped location.
   - Response: `{"status": "success"}`
 
+- `POST /system/intruders/list`
+  - Lists capture-and-lock sessions in `~/Desktop/intruders` (newest first).
+  - Response: `{"status": "success", "sessions": [{"id", "timestamp", "screenshot", "webcam"}]}`
+
+- `GET /system/intruders/file?session=<id>&name=<file>&token=<jwt>`
+  - Serves a capture image (query-param token so `<img>` tags can load it). Path-traversal guarded.
+
+- `POST /system/intruders/delete`
+  - Deletes a capture session folder. Body: `{"session": "<id>"}`.
+  - Response: `{"status": "success"}`
+
 ### Alerts
 
 - `POST /alerts/upload/audio`
