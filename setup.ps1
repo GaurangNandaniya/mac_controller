@@ -116,9 +116,12 @@ Next steps:
        - Settings -> General -> About -> Certificate Trust Settings
        - Turn ON "Full Trust" for the "mkcert ..." certificate
 
-  3. Start the server:
-       .\venv\Scripts\activate
+  3. Start the server (run the venv's own Python directly - no activation needed):
+       .\venv\Scripts\python.exe app.py
+     Or activate the venv first, then run (PowerShell uses Activate.ps1, NOT 'activate'):
+       .\venv\Scripts\Activate.ps1
        python app.py
+     (If Activate.ps1 is blocked: Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass)
 
   4. Open the system tray QR code and scan it from the web app to pair.
 "@
