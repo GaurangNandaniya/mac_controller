@@ -79,7 +79,13 @@ def get_pyaudio():
 UPLOAD_DIR = os.path.expanduser("~/Desktop/intruders/streams")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-@alerts_bp.route('/stream/audio', methods=['POST'])
+# LEGACY — replaced by the /alerts/audio_ws WebSocket (see register_audio_in_ws
+# below). This per-chunk HTTP POST path fired ~43 POSTs/sec; on the keep-alive-less
+# Flask dev server (Connection: close) each chunk paid a fresh TCP+TLS handshake, so
+# audio arrived with 40-190ms jitter (mean ~50ms vs a 23ms budget) -> constant
+# output underruns / breaking. Kept for reference, not registered (decorator
+# commented out) — the client now streams over the WebSocket.
+# @alerts_bp.route('/stream/audio', methods=['POST'])
 def handle_audio_stream():
     """Endpoint for receiving real-time audio chunks"""
     global stream, current_file, current_sample_rate, current_channels
@@ -180,6 +186,97 @@ def handle_audio_stream():
         'sample_rate': sample_rate,
         'channels': channels
     }), 200
+
+def register_audio_in_ws(sock):
+    """Register /alerts/audio_ws — live phone->Mac mic audio over one WebSocket.
+
+    Replaces the legacy per-chunk HTTP POST path. A single persistent socket has
+    no per-chunk TCP+TLS handshake, so PCM arrives at the real-time rate instead
+    of with 40-190ms jitter. A callback-driven PyAudio output stream is the jitter
+    buffer: PyAudio pulls exactly frame_count samples at the audio clock, emitting
+    silence on underrun; the WS thread only appends to the buffer and records to
+    disk (off the audio callback, so file I/O never stalls playback). Auth via
+    ?token= (same as mouse_ws/mic_ws); rate+channels come from query args because
+    iOS AudioContext runs at 48kHz, not the old hardcoded 44.1kHz.
+    """
+
+    @sock.route('/alerts/audio_ws')
+    def audio_in_ws(ws):
+        token = request.args.get('token', '')
+        _, err = auth_manager.validate_permanent_token(token)
+        if err:
+            logger.info(f"audio_ws rejected: {err}")
+            return  # closes the socket
+
+        rate = int(request.args.get('rate', 48000))
+        channels = int(request.args.get('channels', 1))
+        bytes_per_frame = 2 * channels  # paInt16 = 2 bytes/sample
+        max_bytes = rate * bytes_per_frame  # ~1s cap so a burst can't build unbounded latency
+
+        buf = bytearray()
+        buf_lock = threading.Lock()
+
+        def callback(in_data, frame_count, time_info, status):
+            need = frame_count * bytes_per_frame
+            with buf_lock:
+                if len(buf) >= need:
+                    out = bytes(buf[:need])
+                    del buf[:need]
+                else:
+                    out = bytes(buf) + b'\x00' * (need - len(buf))  # underrun -> silence
+                    buf.clear()
+            return (out, pyaudio.paContinue)
+
+        out_stream = None
+        wav = None
+        try:
+            out_stream = get_pyaudio().open(
+                format=pyaudio.paInt16,
+                channels=channels,
+                rate=rate,
+                output=True,
+                frames_per_buffer=1024,
+                stream_callback=callback,
+            )
+            out_stream.start_stream()
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            wav_path = os.path.join(UPLOAD_DIR, f"{timestamp}_{rate}Hz_{channels}ch.wav")
+            wav = wave.open(wav_path, 'wb')
+            wav.setnchannels(channels)
+            wav.setsampwidth(2)
+            wav.setframerate(rate)
+
+            logger.info(f"audio_ws connected — {rate}Hz {channels}ch, recording {os.path.basename(wav_path)}")
+
+            while True:
+                data = ws.receive()
+                if data is None:
+                    break
+                if isinstance(data, str):
+                    continue  # ignore text/control frames
+                with buf_lock:
+                    buf.extend(data)
+                    if len(buf) > max_bytes:  # drop oldest to keep latency bounded
+                        del buf[:len(buf) - max_bytes]
+                wav.writeframes(data)  # WS thread, not the audio callback → never stalls playback
+
+        except Exception as e:
+            logger.info(f"audio_ws disconnected or errored: {e}")
+        finally:
+            if out_stream is not None:
+                try:
+                    out_stream.stop_stream()
+                    out_stream.close()
+                except Exception:
+                    logger.warning("audio_ws: error closing output stream")
+            if wav is not None:
+                try:
+                    wav.close()
+                except Exception:
+                    pass
+            logger.info("audio_ws closed")
+
 
 def cleanup_audio():
     global p, stream

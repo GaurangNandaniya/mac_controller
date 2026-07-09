@@ -4,7 +4,7 @@ from src.controllers.media_controller import media_bp
 from src.controllers.system_controller import system_bp
 from src.controllers.stream_controller import stream_bp
 from src.controllers.connections import connections_bp
-from src.controllers.alerts import alerts_bp
+from src.controllers.alerts import alerts_bp, register_audio_in_ws
 from src.controllers.api import api_bp
 from src.controllers.files import files_bp
 from src.controllers.qr_generator import auth_bp
@@ -40,5 +40,6 @@ def create_app():
     sock = Sock(app)
     register_mouse_ws(sock)
     register_mic_ws(sock)
+    register_audio_in_ws(sock)
 
     return app
