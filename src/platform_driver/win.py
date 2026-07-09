@@ -149,31 +149,48 @@ class WinDriver(PlatformDriver):
         kb.press(keyboard.Key.enter)
         kb.release(keyboard.Key.enter)
 
+    def _get_endpoint_volume(self):
+        """Return the IAudioEndpointVolume COM interface for the default speakers.
+        COM must already be initialized on the calling thread (see _with_com)."""
+        from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+        from comtypes import CLSCTX_ALL
+        devices = AudioUtilities.GetSpeakers()
+        interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+        return ctypes.cast(interface, ctypes.POINTER(IAudioEndpointVolume))
+
+    @staticmethod
+    def _com_scope():
+        """Initialize COM on the current thread and return a cleanup callable.
+
+        Flask serves each request on a pooled worker thread, and pycaw's COM
+        calls need CoInitialize on that thread or they fail intermittently with
+        'CoInitialize has not been called'. CoInitialize is refcounted, so
+        pairing it with CoUninitialize is safe even if COM was already up.
+        """
+        import comtypes
+        comtypes.CoInitialize()
+        return comtypes.CoUninitialize
+
     def set_volume(self, level: int) -> None:
+        # No try/except that swallows: let failures propagate so the endpoint
+        # returns 500 instead of a misleading "success" while nothing changed.
+        cleanup = self._com_scope()
         try:
-            from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-            from comtypes import CLSCTX_ALL
-            devices = AudioUtilities.GetSpeakers()
-            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-            volume = ctypes.cast(interface, ctypes.POINTER(IAudioEndpointVolume))
             level = max(0, min(100, level))
-            volume.SetMasterVolumeLevelScalar(level / 100.0, None)
+            self._get_endpoint_volume().SetMasterVolumeLevelScalar(level / 100.0, None)
             logger.info(f"Windows master volume set to {level}%")
-        except Exception as e:
-            logger.error(f"Error setting volume on Windows: {e}")
+        finally:
+            cleanup()
 
     def toggle_mute(self) -> None:
+        cleanup = self._com_scope()
         try:
-            from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-            from comtypes import CLSCTX_ALL
-            devices = AudioUtilities.GetSpeakers()
-            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-            volume = ctypes.cast(interface, ctypes.POINTER(IAudioEndpointVolume))
-            current_mute = volume.GetMute()
-            volume.SetMute(not current_mute, None)
-            logger.info(f"Windows mute toggled to {not current_mute}")
-        except Exception as e:
-            logger.error(f"Error toggling mute on Windows: {e}")
+            volume = self._get_endpoint_volume()
+            new_mute = not volume.GetMute()
+            volume.SetMute(new_mute, None)
+            logger.info(f"Windows mute toggled to {new_mute}")
+        finally:
+            cleanup()
 
     def _get_winsdk_now_playing_sync(self) -> Dict[str, Any]:
         """Fetch media transport controls info via asyncio on Windows."""
@@ -201,17 +218,18 @@ class WinDriver(PlatformDriver):
     def get_media_status(self) -> Dict[str, Any]:
         vol_int = None
         muted = False
+        cleanup = self._com_scope()
         try:
-            from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-            from comtypes import CLSCTX_ALL
-            devices = AudioUtilities.GetSpeakers()
-            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-            volume = ctypes.cast(interface, ctypes.POINTER(IAudioEndpointVolume))
+            volume = self._get_endpoint_volume()
             vol_int = int(round(volume.GetMasterVolumeLevelScalar() * 100))
             muted = bool(volume.GetMute())
         except Exception as e:
+            # Status is a poll, not a command — degrade gracefully (volume=None).
             logger.debug(f"Could not query pycaw volume: {e}")
+        finally:
+            cleanup()
 
+        # Kept outside the COM scope: WinRT (winsdk) manages its own apartment init.
         now_playing = self._get_winsdk_now_playing_sync()
         return {
             "volume": vol_int,
