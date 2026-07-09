@@ -11,6 +11,7 @@ from src.controllers.qr_generator import auth_bp
 from flask_cors import CORS
 from flask_sock import Sock
 from src.controllers.mouse_controller import register_mouse_ws
+from src.controllers.mic_controller import register_mic_ws
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -38,5 +39,6 @@ def create_app():
 
     sock = Sock(app)
     register_mouse_ws(sock)
+    register_mic_ws(sock)
 
     return app
