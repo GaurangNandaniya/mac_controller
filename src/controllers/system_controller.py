@@ -283,3 +283,20 @@ def press_key():
         logger.error(f"Error in pressKey: {str(e)}")
         return jsonify({"status": "error", "error": str(e)}), 500
 
+
+@system_bp.route('/launch-app', methods=['POST'])
+def launch_app():
+    """Launch an app by display name via the platform driver (macOS `open -a`,
+    Windows Start-menu search). Body: {"name": "Notepad"}."""
+    try:
+        data = request.get_json(silent=True) or {}
+        name = data.get("name")
+        if not isinstance(name, str) or not name.strip():
+            return jsonify({"status": "error", "error": "Missing 'name'"}), 400
+        driver.launch_app(name.strip())
+        logger.info(f"launchApp: {name.strip()}")
+        return jsonify({"status": "success"})
+    except Exception as e:
+        logger.error(f"Error launching app: {str(e)}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+

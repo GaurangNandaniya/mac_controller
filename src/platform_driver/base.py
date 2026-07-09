@@ -51,6 +51,11 @@ class PlatformDriver(ABC):
         """Press a key with optional modifier keys (`cmd`, `option`, `ctrl`, `shift`)."""
         pass
 
+    @abstractmethod
+    def launch_app(self, name: str) -> None:
+        """Launch an application by its display name (macOS: `open -a`; Windows: Start-menu search)."""
+        pass
+
     # --- Media Operations ---
     @abstractmethod
     def set_volume(self, level: int) -> None:

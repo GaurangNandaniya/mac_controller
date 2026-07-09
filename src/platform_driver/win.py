@@ -135,6 +135,20 @@ class WinDriver(PlatformDriver):
             for mod in reversed(active_mods):
                 kb.release(mod)
 
+    def launch_app(self, name: str) -> None:
+        # Windows equivalent of Spotlight: tap the Win key ALONE to open Start
+        # (Win+Space switches keyboard layout, so it must be pressed on its own),
+        # type the app name, let search resolve, then Enter to launch the top hit.
+        from pynput import keyboard
+        kb = keyboard.Controller()
+        kb.press(keyboard.Key.cmd)   # Win key
+        kb.release(keyboard.Key.cmd)
+        time.sleep(0.5)              # let Start open and take focus
+        kb.type(name)
+        time.sleep(0.8)              # let search resolve the top result
+        kb.press(keyboard.Key.enter)
+        kb.release(keyboard.Key.enter)
+
     def set_volume(self, level: int) -> None:
         try:
             from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume

@@ -164,6 +164,11 @@ class MacDriver(PlatformDriver):
         script = f'tell application "System Events" to {action}'
         subprocess.run(["osascript", "-e", script], capture_output=True, check=True)
 
+    def launch_app(self, name: str) -> None:
+        # `open -a` launches by app display name directly — more reliable than
+        # driving Spotlight with keystrokes (no timing/focus races).
+        subprocess.run(["open", "-a", name], capture_output=True, check=True)
+
     def set_volume(self, level: int) -> None:
         level = max(0, min(100, level))
         subprocess.run(["osascript", "-e", f"set volume output volume {level}"], capture_output=True, check=True)
