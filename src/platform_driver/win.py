@@ -163,13 +163,21 @@ class WinDriver(PlatformDriver):
         """Initialize COM on the current thread and return a cleanup callable.
 
         Flask serves each request on a pooled worker thread, and pycaw's COM
-        calls need CoInitialize on that thread or they fail intermittently with
-        'CoInitialize has not been called'. CoInitialize is refcounted, so
-        pairing it with CoUninitialize is safe even if COM was already up.
+        calls need COM initialized on that thread. But if the thread was already
+        initialized with a DIFFERENT apartment model, CoInitialize raises
+        RPC_E_CHANGED_MODE (0x80010106) - in that case COM is already usable, so
+        we must proceed WITHOUT initializing and must NOT CoUninitialize. Only
+        undo the init we actually performed.
         """
         import comtypes
-        comtypes.CoInitialize()
-        return comtypes.CoUninitialize
+        try:
+            comtypes.CoInitialize()
+            return comtypes.CoUninitialize
+        except OSError as e:
+            # RPC_E_CHANGED_MODE: already initialized on this thread with another
+            # model. COM is ready; nothing for us to undo.
+            logger.debug(f"CoInitialize skipped (already initialized): {e}")
+            return lambda: None
 
     def set_volume(self, level: int) -> None:
         # No try/except that swallows: let failures propagate so the endpoint
