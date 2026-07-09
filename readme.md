@@ -371,3 +371,13 @@ The Rust server will:
   - Uses Rust's memory safety guarantees for critical system operations
 - Consider implementing authentication for production use
 - Be cautious with system control endpoints as they can affect your Mac's operation
+
+## Changelog
+
+Most recent first. Fuller module-level history lives in `CODEBASE_MAP.md`; the cross-repo feature list is in `../FEATURE_BACKLOG.md`.
+
+- **2026-07-09 — Listen to the Mac's microphone live on the phone.** New authed WebSocket **`/media/mic_ws`** on the main server (`?token=` query auth, like `/system/mouse_ws`) captures the built-in mic via PyAudio and streams Int16 mono PCM to the web app, which plays it through Web Audio. It's on the main TLS server (8080), not the 9092 BlackHole audio server, because the HTTPS web app can't open a plain `ws://` (mixed content). First use triggers a macOS Microphone-permission prompt for the server process. In the web app: a **floating audio window** (drag/minimize, live level meter, volume, timer) under Stream → "Listen to Mac".
+- **2026-07-09 — Floating stream windows (web app).** Screen/camera streams are now movable, resizable, minimizable in-app picture-in-picture windows, and screen + camera can be open at once — client-only, no server change.
+- **2026-06-10 — Remote mouse/trackpad** over `/system/mouse_ws` (WebSocket).
+- **2026-06-07 — Remote keyboard typing** (`/system/keyboardType`, `/system/pressKey`).
+- **2026-06-04 — Discovery hardening:** removed the app's own mDNS responder (macOS Bonjour is the sole `<hostname>.local` advertiser) to fix the recurring iOS resolution wedge.
