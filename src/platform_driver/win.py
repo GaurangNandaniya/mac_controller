@@ -150,12 +150,19 @@ class WinDriver(PlatformDriver):
         kb.release(keyboard.Key.enter)
 
     def _get_endpoint_volume(self):
-        """Return the IAudioEndpointVolume COM interface for the default speakers.
-        COM must already be initialized on the calling thread (see _with_com)."""
-        from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+        """Return the IAudioEndpointVolume interface for the default speakers.
+        COM must already be initialized on the calling thread (see _com_scope())."""
+        from pycaw.pycaw import AudioUtilities
+        speakers = AudioUtilities.GetSpeakers()
+        # Modern pycaw (2023+): GetSpeakers() returns an AudioDevice whose
+        # .EndpointVolume property already activates + casts the interface.
+        if hasattr(speakers, "EndpointVolume"):
+            return speakers.EndpointVolume
+        # Legacy pycaw: GetSpeakers() returned a raw IMMDevice needing manual
+        # Activate + cast.
+        from pycaw.pycaw import IAudioEndpointVolume
         from comtypes import CLSCTX_ALL
-        devices = AudioUtilities.GetSpeakers()
-        interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+        interface = speakers.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
         return ctypes.cast(interface, ctypes.POINTER(IAudioEndpointVolume))
 
     @staticmethod
