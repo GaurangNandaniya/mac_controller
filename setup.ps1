@@ -26,10 +26,23 @@ Set-Location $PSScriptRoot
 
 # ---- 1. Check dependencies ----
 Say "Checking Python and mkcert"
-if (-not (Get-Command "python" -ErrorAction SilentlyContinue)) {
-    Die "python not found - install Python 3 (from python.org or 'winget install Python.Python.3.11') and add to PATH."
+# Resolve a REAL Python interpreter. Prefer the 'py' launcher: it bypasses the
+# Microsoft Store 'python.exe' alias stub, which resolves via Get-Command but only
+# prints "install from the Microsoft Store" and cannot actually create a venv.
+$PyExe  = $null
+$PyArgs = @()
+if (Get-Command "py" -ErrorAction SilentlyContinue) {
+    $PyExe = "py"; $PyArgs = @("-3")
+} elseif (Get-Command "python" -ErrorAction SilentlyContinue) {
+    $src = (Get-Command "python").Source
+    if ($src -like "*\WindowsApps\*") {
+        Die "Only the Microsoft Store alias for 'python' is on PATH (a stub that can't create venvs). Turn it OFF under Settings > Apps > Advanced app settings > App execution aliases (python.exe AND python3.exe), OR install Python from python.org with 'Add python.exe to PATH'. Then reopen PowerShell and re-run .\setup.ps1"
+    }
+    $PyExe = $src
+} else {
+    Die "python not found - install Python 3.12 ('winget install -e --id Python.Python.3.12' or python.org with 'Add to PATH'), reopen PowerShell, and re-run."
 }
-Ok "Python found"
+Ok "Python found ($PyExe $PyArgs)"
 
 if (-not (Get-Command "mkcert" -ErrorAction SilentlyContinue)) {
     Say "mkcert not found. Trying to install via winget or choco..."
@@ -56,11 +69,15 @@ mkcert -install
 Ok "mkcert local CA installed"
 
 # ---- 2. Python virtualenv + dependencies ----
-if (Test-Path "venv") {
+if (Test-Path "venv\Scripts\python.exe") {
     Ok "venv already exists"
 } else {
+    if (Test-Path "venv") { Remove-Item -Recurse -Force "venv" }  # clean a half-made / broken venv
     Say "Creating Python virtualenv"
-    python -m venv venv
+    & $PyExe @PyArgs -m venv venv
+    if (-not (Test-Path "venv\Scripts\python.exe")) {
+        Die "venv creation failed - '.\venv\Scripts\python.exe' is missing. The 'python' that ran was almost certainly the Microsoft Store stub. Disable the App execution aliases (Settings > Apps > Advanced app settings > App execution aliases), or install a real Python from python.org, then re-run."
+    }
     Ok "venv created"
 }
 
