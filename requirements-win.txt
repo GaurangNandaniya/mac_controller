@@ -1,0 +1,5 @@
+-r requirements.txt
+pystray>=0.19.5
+pycaw>=20230407
+screen-brightness-control>=0.22.0
+winsdk>=1.0.0

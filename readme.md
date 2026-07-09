@@ -111,8 +111,8 @@ npm run build
 python3 -m venv venv
 source venv/bin/activate
 
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies (platform-specific: pulls in the shared base + OS extras)
+pip install -r requirements-mac.txt   # macOS (Windows: pip install -r requirements-win.txt)
 ````
 
 ### Certificate Setup

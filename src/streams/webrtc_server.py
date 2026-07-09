@@ -11,8 +11,7 @@ from aiohttp import web
 from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
 from aiortc.contrib.media import MediaRelay
 
-# Add the parent directory to sys.path so we can import config
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from config import WEBRTC_SHARE_PORT, WEBRTC_FPS
 
 logger = logging.getLogger('webrtc_server')

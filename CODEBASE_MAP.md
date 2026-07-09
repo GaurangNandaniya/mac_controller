@@ -1,14 +1,16 @@
 # Codebase Map
 
 ## Project Overview
-A macOS remote control server that lets a mobile app (or web app) control a MacBook over the local network — media playback, volume, brightness, keyboard/mouse lock, screen/camera streaming, audio streaming, and system commands. Runs as a macOS menu bar app; clients reach it by the Mac's native `<hostname>.local` (Bonjour) name.
+A **cross-platform** remote control server (`feature/cross-platform-isolation` branch) that lets a mobile app (or web app) control a **macOS** or **Windows** machine over the local network — media playback, volume, brightness, keyboard/mouse lock, screen/camera streaming, audio streaming, and system commands. Runs as a macOS menu bar app (`rumps`) or Windows system tray app (`pystray`); clients reach it by the host's `<hostname>.local` / local network IP.
 
 ## Tech Stack
 - **Language:** Python 3
 - **Web framework:** Flask (blueprints), flask-cors, flask-sock
-- **Streaming:** OpenCV (MJPEG), aiortc (WebRTC), PyAudio + Web Audio (system audio)
-- **macOS integration:** pyobjc-core + 3 frameworks (Cocoa, Quartz, ApplicationServices), CoreBrightness (private framework, runtime-loaded), rumps (menu bar), pynput (keyboard/mouse), subprocess+osascript
-- **Discovery:** native macOS Bonjour advertises `<hostname>.local` → current IP. The app runs **no** mDNS responder of its own (removed 2026-06-04 — see Last Updated).
+- **Streaming:** OpenCV (MJPEG), aiortc (WebRTC), PyAudio + Web Audio (WASAPI on Windows, BlackHole on macOS)
+- **Platform Abstraction Layer (`src/platform_driver/`):**
+  - **macOS (`MacDriver`):** `pmset`, `osascript`, `screencapture`, `CoreBrightness.framework`, `pyobjc`, `rumps`
+  - **Windows (`WinDriver`):** `user32.LockWorkStation`, `rundll32 powrprof.dll`, `psutil`, `screen_brightness_control`, `pycaw`, `winsdk`, `mss`, `pystray`
+- **Discovery:** native OS network resolution (`<hostname>.local`). The app runs **no** mDNS responder of its own.
 - **Auth:** JWT (PyJWT), QR-code pairing flow with rate limiting
 - **Config:** python-dotenv (.env), config.py
 
@@ -16,15 +18,25 @@ A macOS remote control server that lets a mobile app (or web app) control a MacB
 ```
 mac_controller/
 ├── config.py                  # Server/streaming ports, debug flag
-├── run.py                     # Standalone Flask entry point (legacy)
-├── mac_controller_app.py      # Menu bar app entry point (rumps) — primary
-├── requirements.txt
+├── app.py                     # Universal top-level entry point (auto-detects macOS vs Windows)
+├── mac_controller_app.py      # macOS Menu bar app entry point (rumps)
+├── win_controller_app.py      # Windows System tray app entry point (pystray)
+├── requirements.txt           # Shared cross-platform base dependencies
+├── requirements-mac.txt       # macOS-specific requirements (-r requirements.txt + rumps, pyobjc)
+├── requirements-win.txt       # Windows-specific requirements (-r requirements.txt + pystray, pycaw, winsdk)
+├── setup.sh                   # macOS plug-and-play setup script
+├── setup.ps1                  # Windows 10/11 plug-and-play setup script (PowerShell)
 ├── src/
 │   ├── __init__.py            # Creates Flask app, exposes setup_logger
 │   ├── server.py              # create_app() — Flask factory, CORS, blueprint registration
+│   ├── platform_driver/       # OS Abstraction Layer (Platform Driver Pattern)
+│   │   ├── __init__.py        # Exports runtime auto-detected `driver: PlatformDriver` singleton
+│   │   ├── base.py            # PlatformDriver Abstract Base Class contract
+│   │   ├── mac.py             # MacDriver implementation (macOS)
+│   │   └── win.py             # WinDriver implementation (Windows)
 │   ├── controllers/
 │   │   ├── media_controller.py    # /media/* — play/pause, next/prev, volume, arrow keys
-│   │   ├── system_controller.py   # /system/* — lock, sleep, brightness, battery, capture, kb/mouse lock, keyboardType (remote text/keys)
+│   │   ├── system_controller.py   # /system/* — lock, sleep, brightness, battery, capture, kb/mouse lock, keyboardType
 │   │   ├── stream_controller.py   # /system/camera/stream, /system/screen/stream (MJPEG)
 │   │   ├── alerts.py              # /alerts/* — audio upload, real-time audio stream playback
 │   │   ├── connections.py         # /connections/ping — discovery ping response
@@ -33,7 +45,7 @@ mac_controller/
 │   ├── streams/                   # Standalone streaming servers (separate processes)
 │   │   ├── screen_share_server.py # MJPEG screen share on port 9090
 │   │   ├── webrtc_server.py       # WebRTC screen share on port 9091
-│   │   └── audio_server.py        # System audio (BlackHole) -> PCM/WebSocket on 9092; also serves a standalone audio-only player page at GET /
+│   │   └── audio_server.py        # System audio (WASAPI/BlackHole) -> PCM/WebSocket on 9092; also serves GET /
 │   └── utils/
 │       ├── auth_manager.py        # AuthManager — JWT tokens, pairing, middleware
 │       ├── keyboardMouseController.py  # Keyboard/mouse lock/unlock via pynput, TTS

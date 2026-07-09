@@ -13,7 +13,7 @@ There is a deeper architectural reference in **`CODEBASE_MAP.md`** — read it f
 ```bash
 # Setup
 python3 -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-mac.txt   # base + rumps + pyobjc (Windows: requirements-win.txt)
 
 # Run (primary): menu bar app — auto-starts HTTPS server + mDNS, spawns stream processes
 python3 mac_controller_app.py

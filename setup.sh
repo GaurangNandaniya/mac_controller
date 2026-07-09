@@ -55,7 +55,7 @@ else
 fi
 say "Installing Python dependencies (this can take a few minutes the first time)"
 ./venv/bin/pip install --quiet --upgrade pip
-./venv/bin/pip install --quiet -r requirements.txt
+./venv/bin/pip install --quiet -r requirements-mac.txt
 ok "Python dependencies installed"
 
 # ---- 3. TLS certificates ----

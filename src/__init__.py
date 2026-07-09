@@ -1,13 +1,8 @@
-from src.server import create_app
-from .utils.logger import setup_logger
+"""Server package.
 
-app = create_app()
-# Setup default logger
-# logger = setup_logger()
-
-if __name__ == "__main__":
-    app.run(
-        host=app.config['SERVER_HOST'],
-        port=app.config['SERVER_PORT'],
-        debug=app.config['DEBUG_MODE']
-    )
+Intentionally side-effect free: importing `src` (e.g. `from src.platform_driver
+import driver` inside the standalone stream subprocesses) must NOT build the Flask
+app. Entry points construct the app explicitly via `src.server.create_app()`
+(mac_controller_app.py / win_controller_app.py / run.py). Nothing imports a
+module-level `src.app`, so it is not created here.
+"""

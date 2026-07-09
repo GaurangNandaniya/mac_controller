@@ -24,7 +24,7 @@ from flask import Flask, render_template, Response, jsonify
 from flask_cors import CORS
 
 # Import config
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from config import SCREEN_SHARE_PORT, SCREEN_SHARE_FPS, SCREEN_SHARE_QUALITY
 
 logger = logging.getLogger('screen_share_server')
