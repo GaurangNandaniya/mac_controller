@@ -82,8 +82,14 @@ if (Test-Path "venv\Scripts\python.exe") {
 }
 
 Say "Installing Windows dependencies (this can take a few minutes the first time)"
-.\venv\Scripts\python.exe -m pip install --quiet --upgrade pip
-.\venv\Scripts\pip.exe install --quiet -r requirements-win.txt
+# $ErrorActionPreference does NOT stop on a native exe's non-zero exit, so check
+# $LASTEXITCODE explicitly — otherwise a failed pip resolve prints "[OK]" and the
+# server then dies on a missing module (e.g. dotenv).
+.\venv\Scripts\python.exe -m pip install --upgrade pip
+.\venv\Scripts\python.exe -m pip install -r requirements-win.txt
+if ($LASTEXITCODE -ne 0) {
+    Die "pip failed to install requirements-win.txt (exit $LASTEXITCODE). Fix the error printed above and re-run .\setup.ps1"
+}
 Ok "Windows dependencies installed"
 
 # ---- 3. TLS certificates ----
