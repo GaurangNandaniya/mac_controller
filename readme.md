@@ -182,6 +182,24 @@ chmod +x start_mac_controller_server.sh
    - Click ➕ and select `Mac Controller.app`
    - Check "Open at Login" option
 
+### Windows Startup Configuration
+
+The Windows analog of the Automator app + Login Item:
+
+1. **Clickable launcher** — double-click **`start_win_controller_server.vbs`**. It starts the tray app with **no console window** (uses the venv's `pythonw.exe`). Paths are relative to the file, so the folder can be moved/renamed. Right-click it → *Send to → Desktop (create shortcut)* if you want a desktop/Start icon (the Launchpad-app equivalent).
+
+2. **Run at login (Optional)** — from the repo folder in PowerShell:
+
+   ```powershell
+   .\install-autostart.ps1
+   ```
+
+   This drops a `Mac Controller.lnk` in your Startup folder that launches the server hidden at each login (the Login-Items equivalent). Disable it with:
+
+   ```powershell
+   .\install-autostart.ps1 -Remove
+   ```
+
 ## Server Management
 
 - **Manual Start**: Run `mac_controller_app.py` directly
