@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request, send_file
 import os
 import re
+import sys
 import shutil
 from ..utils import setup_logger
 import cv2
@@ -282,6 +283,20 @@ def press_key():
     except Exception as e:
         logger.error(f"Error in pressKey: {str(e)}")
         return jsonify({"status": "error", "error": str(e)}), 500
+
+
+@system_bp.route('/platform', methods=['POST'])
+def platform_info():
+    """Report the server OS + capability flags so the client can adapt its UI
+    (keyboard symbols, labels, default apps, hiding unsupported controls)."""
+    plat = sys.platform  # 'darwin' | 'win32'
+    os_name = {"darwin": "macOS", "win32": "Windows"}.get(plat, plat)
+    return jsonify({
+        "status": "success",
+        "platform": plat,
+        "os": os_name,
+        "capabilities": driver.capabilities(),
+    })
 
 
 @system_bp.route('/launch-app', methods=['POST'])

@@ -77,3 +77,9 @@ class PlatformDriver(ABC):
     def get_loopback_pyaudio_params(self, pyaudio_instance: Any) -> Dict[str, Any]:
         """Return kwargs dictionary for `p.open(...)` to capture system output audio (e.g. BlackHole device index on Mac or WASAPI loopback on Win)."""
         pass
+
+    # --- Capabilities (client uses these to adapt its UI) ---
+    def capabilities(self) -> Dict[str, bool]:
+        """Feature-support flags the client reads to show/hide OS-specific controls.
+        Base defaults are conservative (off); drivers override what they support."""
+        return {"keyboard_backlight": False}

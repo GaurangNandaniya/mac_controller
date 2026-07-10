@@ -44,33 +44,32 @@ class WinDriver(PlatformDriver):
         return None
 
     def adjust_display_brightness(self, up: bool) -> None:
-        try:
-            import screen_brightness_control as sbc
-            current = sbc.get_brightness()
-            if isinstance(current, list) and len(current) > 0:
-                curr_val = current[0]
-            elif isinstance(current, int):
-                curr_val = current
-            else:
-                curr_val = 50
-            new_val = max(0, min(100, curr_val + (10 if up else -10)))
-            sbc.set_brightness(new_val)
-            logger.info(f"Windows display brightness adjusted to {new_val}%")
-        except Exception as e:
-            logger.error(f"Error adjusting display brightness on Windows: {e}")
+        # Don't swallow: let failures propagate so the endpoint returns 500 and
+        # the real screen_brightness_control error is visible (many desktop /
+        # external monitors can't be controlled in software).
+        import screen_brightness_control as sbc
+        current = sbc.get_brightness()
+        if isinstance(current, list) and len(current) > 0:
+            curr_val = current[0]
+        elif isinstance(current, int):
+            curr_val = current
+        else:
+            curr_val = 50
+        new_val = max(0, min(100, curr_val + (10 if up else -10)))
+        sbc.set_brightness(new_val)
+        logger.info(f"Windows display brightness adjusted to {new_val}%")
 
     def set_display_brightness(self, level: int) -> None:
-        try:
-            import screen_brightness_control as sbc
-            level = max(0, min(100, level))
-            sbc.set_brightness(level)
-            logger.info(f"Windows display brightness set to {level}%")
-        except Exception as e:
-            logger.error(f"Error setting display brightness on Windows: {e}")
+        import screen_brightness_control as sbc
+        level = max(0, min(100, level))
+        sbc.set_brightness(level)
+        logger.info(f"Windows display brightness set to {level}%")
 
     def set_keyboard_brightness(self, level: int) -> None:
-        # Windows desktop/laptop hardware backlighting is vendor-specific.
-        logger.warning(f"Keyboard backlight setting ({level}%) is not supported natively via OS APIs on Windows desktop hardware.")
+        # Windows keyboard backlight is vendor-specific with no standard OS API,
+        # so this can't work generically. The client hides the control on Windows
+        # via capabilities()["keyboard_backlight"] = False (inherited from base).
+        raise NotImplementedError("Keyboard backlight control is not supported on Windows")
 
     def capture_screen_and_webcam(self, session_path: str) -> None:
         os.makedirs(session_path, exist_ok=True)

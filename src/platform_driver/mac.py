@@ -196,6 +196,10 @@ class MacDriver(PlatformDriver):
             "nowPlaying": now_playing,
         }
 
+    def capabilities(self) -> Dict[str, Any]:
+        # Apple Silicon keyboard backlight works via CoreBrightness.
+        return {"keyboard_backlight": True}
+
     def get_loopback_pyaudio_params(self, pyaudio_instance: Any) -> Dict[str, Any]:
         """Find the BlackHole virtual audio device index on macOS."""
         for i in range(pyaudio_instance.get_device_count()):
