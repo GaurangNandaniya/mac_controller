@@ -11,6 +11,7 @@ from src.streams.audio_server import run_audio_server
 from src.utils.socket import get_local_ip
 from src.utils.auth_manager import auth_manager
 from src.utils.keyboardMouseController import unlock_keyboard, unlock_mouse
+from src.utils.tailscale import get_tailscale_hostname
 from dotenv import load_dotenv
 import os
 load_dotenv()
@@ -96,6 +97,16 @@ class MacPyCtrlMenuBar(rumps.App):
         self.status_item = rumps.MenuItem("ℹ️ Server Status", callback=None)
         self.ip_item = rumps.MenuItem("📡 IP Address", callback=None)
         self.qr_item = rumps.MenuItem("QR Code", callback=self.open_qr_page)
+        # QR pairing (Tailscale). Only appears when Tailscale is installed + up;
+        # otherwise the menu stays clean.
+        self.tailscale_hostname = get_tailscale_hostname()
+        if self.tailscale_hostname:
+            self.tailscale_qr_item = rumps.MenuItem(
+                "QR Code (Tailscale)",
+                callback=self.open_tailscale_qr_page,
+            )
+        else:
+            self.tailscale_qr_item = None
         self.camera_test_item = rumps.MenuItem("📷 Open Camera Test", callback=self.open_camera_test)
         self.screen_test_item = rumps.MenuItem("🖥️ Open Screen Test (Simple)", callback=self.open_screen_test)
         self.screen_share_item = rumps.MenuItem("🖥️ Start Screen + Audio Share", callback=self.toggle_screen_share)
@@ -104,12 +115,20 @@ class MacPyCtrlMenuBar(rumps.App):
         self.revoke_all = rumps.MenuItem("Revoke All Devices", callback=self.revoke_all_devices)
         self.quit_button_item = rumps.MenuItem("Quit", callback=self.cleanup)
 
-        # Define menu with key-based items
-        self.menu = [
+        # Define menu with key-based items.
+        # NOTE: use `is not None` (not truthiness) for optional MenuItems —
+        # rumps.MenuItem extends Menu, whose __len__ returns 0 for a leaf item,
+        # so bool(empty MenuItem) is False and a truthiness check silently
+        # drops the item.
+        menu_items = [
             self.start_item,
             self.stop_item,
             None,  # separator
             self.qr_item,
+        ]
+        if self.tailscale_qr_item is not None:
+            menu_items.append(self.tailscale_qr_item)
+        menu_items.extend([
             self.camera_test_item,
             self.screen_test_item,
             self.screen_share_item,
@@ -119,8 +138,9 @@ class MacPyCtrlMenuBar(rumps.App):
             self.status_item,
             self.ip_item,
             self.revoke_all,
-            self.quit_button_item
-        ]
+            self.quit_button_item,
+        ])
+        self.menu = menu_items
         
         # Set initial state of the server
         self.update_status("Stopped", "🔴")
@@ -159,6 +179,12 @@ Server running at:
     def open_qr_page(self, sender):
         """Open the QR authentication page in browser"""
         webbrowser.open(f"https://localhost:{self.app.config['SERVER_PORT']}/auth/qr")
+
+    def open_tailscale_qr_page(self, sender):
+        """Open the QR pairing page with the Tailscale FQDN as the serviceUrl host."""
+        webbrowser.open(
+            f"https://localhost:{self.app.config['SERVER_PORT']}/auth/qr?host={self.tailscale_hostname}"
+        )
 
     def open_camera_test(self, sender):
         """Open the camera stream page in browser for local testing"""
