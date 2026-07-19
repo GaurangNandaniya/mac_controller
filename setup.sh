@@ -69,10 +69,30 @@ else
     *)       LOCAL_NAME="$HOST_RAW.local" ;;
   esac
   LAN_IP="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || true)"
-  say "Generating TLS cert for: $LOCAL_NAME localhost 127.0.0.1 ::1 ${LAN_IP:-(no LAN IP found)}"
+  # Include the Tailscale FQDN as a SAN if Tailscale is installed at setup time.
+  # Lets the same cert serve LAN (.local) and internet (Tailscale) entry points
+  # without a follow-up regen. Silent no-op if Tailscale isn't installed.
+  TS_FQDN=""
+  if command -v tailscale >/dev/null 2>&1; then
+    TS_FQDN="$(tailscale status --json 2>/dev/null | ./venv/bin/python3 -c '
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    print((data.get("Self") or {}).get("DNSName", "").rstrip("."))
+except Exception:
+    pass
+' || true)"
+  fi
+  if [ -n "$TS_FQDN" ]; then
+    ok "Tailscale detected: $TS_FQDN — including as SAN"
+  fi
+  say "Generating TLS cert for: $LOCAL_NAME localhost 127.0.0.1 ::1 ${LAN_IP:-(no LAN IP found)} ${TS_FQDN:-(no Tailscale)}"
   # Fixed output names so .env paths are deterministic.
-  mkcert -cert-file cert.pem -key-file key.pem "$LOCAL_NAME" localhost 127.0.0.1 ::1 ${LAN_IP:+$LAN_IP}
-  ok "Wrote cert.pem + key.pem (covers $LOCAL_NAME)"
+  mkcert -cert-file cert.pem -key-file key.pem \
+    "$LOCAL_NAME" localhost 127.0.0.1 ::1 \
+    ${LAN_IP:+$LAN_IP} \
+    ${TS_FQDN:+$TS_FQDN}
+  ok "Wrote cert.pem + key.pem (covers $LOCAL_NAME${TS_FQDN:+ + $TS_FQDN})"
 fi
 
 # ---- 4. .env ----
