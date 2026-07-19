@@ -10,7 +10,17 @@ from config import SERVER_PORT
 import secrets
 from dotenv import load_dotenv
 import os
+import re
 load_dotenv()
+
+# Accepts a valid DNS hostname (labels of alphanumerics + hyphens, dot-separated).
+# Guards against injecting arbitrary characters into the connection URL when the
+# menu-bar app passes ?host=<fqdn> to override the default <hostname>.local.
+_HOST_LABEL = r"[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+_HOST_RE = re.compile(rf"^{_HOST_LABEL}(\.{_HOST_LABEL})*$")
+
+def _valid_host(host: str) -> bool:
+    return bool(host) and len(host) <= 253 and bool(_HOST_RE.match(host))
 
 
 logger = setup_logger()
@@ -45,12 +55,17 @@ def qr_auth_page():
     # Generate a temporary token
     temp_token = auth_manager.generate_temp_token()
     
-    # Create the connection URL that will be encoded in the QR.
+    # Host override: ?host=<fqdn> lets the menu bar generate a QR for the
+    # Tailscale FQDN (or any stable hostname). Falls back to <hostname>.local.
     # gethostname() may already include the ".local" suffix; avoid doubling it
     # (a doubled ".local.local" name has no mDNS responder and forces a slow
     # multi-second resolution timeout on each cold lookup).
-    hostname = socket.gethostname()
-    service_name = hostname if hostname.endswith(".local") else f"{hostname}.local"
+    override = request.args.get("host", "").strip()
+    if override and _valid_host(override):
+        service_name = override
+    else:
+        hostname = socket.gethostname()
+        service_name = hostname if hostname.endswith(".local") else f"{hostname}.local"
     port = SERVER_PORT
     connection_url = f"{os.getenv("WEB_APP_URL")}/connect?token={temp_token}&&serviceUrl=https://{service_name}:{port}"
     # Generate QR code
