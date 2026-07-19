@@ -114,6 +114,13 @@ fi
 
 # ---- done ----
 CAROOT="$(mkcert -CAROOT 2>/dev/null || echo '<run: mkcert -CAROOT>')"
+# Detect Tailscale for the closing hint (independent of whether the cert was
+# just regenerated — the hint should be accurate on re-runs too).
+if command -v tailscale >/dev/null 2>&1; then
+  TS_HINT="Tailscale is already installed. Its hostname is covered by the cert; when you start the server, a second \"QR Code (Tailscale)\" menu item will appear for pairing devices you'll use over the internet."
+else
+  TS_HINT="Internet access (optional): install Tailscale on this Mac (standalone installer from tailscale.com — NOT the Mac App Store version, which sandboxes the CLI) and on your iPhone with the same identity, then re-run ./setup.sh so the cert covers the Tailscale hostname. A \"QR Code (Tailscale)\" menu item will appear. See readme.md → \"Remote access via Tailscale\"."
+fi
 printf "\n\033[1;32mSetup complete.\033[0m\n\n"
 cat <<DONE
 Next steps:
@@ -130,4 +137,6 @@ Next steps:
        source venv/bin/activate && python3 mac_controller_app.py
 
   4. Open the menu-bar QR and scan it from the web app to pair.
+
+  5. $TS_HINT
 DONE

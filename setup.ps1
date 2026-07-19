@@ -148,6 +148,13 @@ PRIVATE_KEY_PATH=./key.pem
 
 # ---- Done ----
 $CaRoot = mkcert -CAROOT
+# Detect Tailscale for the closing hint (independent of whether the cert was
+# just regenerated - the hint should be accurate on re-runs too).
+if (Get-Command "tailscale" -ErrorAction SilentlyContinue) {
+    $TsHint = "Tailscale is already installed. Its hostname is covered by the cert; when you start the server, a second `"QR Code (Tailscale)`" tray menu item will appear for pairing devices you'll use over the internet."
+} else {
+    $TsHint = "Internet access (optional): install Tailscale on this PC (standalone installer from tailscale.com) and on your iPhone with the same identity, then re-run .\setup.ps1 so the cert covers the Tailscale hostname. A `"QR Code (Tailscale)`" tray menu item will appear. See readme.md -> `"Remote access via Tailscale`"."
+}
 Write-Host "`nSetup complete.`n" -ForegroundColor Green
 Write-Host @"
 Next steps:
@@ -167,4 +174,6 @@ Next steps:
      (If Activate.ps1 is blocked: Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass)
 
   4. Open the system tray QR code and scan it from the web app to pair.
+
+  5. $TsHint
 "@
