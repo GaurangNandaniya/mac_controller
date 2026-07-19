@@ -97,9 +97,29 @@ if ((Test-Path "cert.pem") -and (Test-Path "key.pem")) {
     Ok "TLS certs (cert.pem/key.pem) already exist - skipping"
 } else {
     $LocalName = "$env:COMPUTERNAME.local"
-    Say "Generating TLS cert for: $LocalName localhost 127.0.0.1 ::1"
-    mkcert -cert-file cert.pem -key-file key.pem $LocalName localhost 127.0.0.1 ::1
-    Ok "Wrote cert.pem + key.pem (covers $LocalName)"
+
+    # Include the Tailscale FQDN as a SAN if Tailscale is installed at setup time.
+    # Lets the same cert serve LAN (.local) and internet (Tailscale) entry points
+    # without a follow-up regen. Silent no-op if Tailscale isn't installed.
+    $TsFqdn = ""
+    if (Get-Command "tailscale" -ErrorAction SilentlyContinue) {
+        try {
+            $tsJson = (& tailscale status --json 2>$null) | Out-String
+            if ($tsJson) {
+                $tsData = $tsJson | ConvertFrom-Json -ErrorAction SilentlyContinue
+                if ($tsData -and $tsData.Self -and $tsData.Self.DNSName) {
+                    $TsFqdn = $tsData.Self.DNSName.TrimEnd('.')
+                }
+            }
+        } catch { $TsFqdn = "" }
+    }
+    if ($TsFqdn) { Ok "Tailscale detected: $TsFqdn - including as SAN" }
+
+    $MkcertArgs = @($LocalName, "localhost", "127.0.0.1", "::1")
+    if ($TsFqdn) { $MkcertArgs += $TsFqdn }
+    Say ("Generating TLS cert for: " + ($MkcertArgs -join " "))
+    mkcert -cert-file cert.pem -key-file key.pem @MkcertArgs
+    Ok ("Wrote cert.pem + key.pem (covers $LocalName" + $(if ($TsFqdn) { " + $TsFqdn" } else { "" }) + ")")
 }
 
 # ---- 4. .env ----

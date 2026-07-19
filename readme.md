@@ -22,6 +22,20 @@ When it finishes, follow the printed steps (install the mkcert root CA on your i
 
 > **Multiple Macs:** each Mac has its own CA, so install + Full-Trust each Mac's `rootCA.pem` on the phone. The web app's device switcher then hops between them.
 
+## Remote access via Tailscale (optional)
+
+To reach the Mac from anywhere on the internet (any Wi-Fi, cellular) without port forwarding or a public URL, use Tailscale — a private WireGuard mesh that gives the Mac a stable `<name>.tail-XXXX.ts.net` hostname reachable only from your enrolled devices.
+
+1. Install the **standalone Tailscale** app on the Mac (from **tailscale.com** — **not** the Mac App Store version; the App Store build sandboxes the `tailscale` CLI, which breaks auto-detect). Sign in with Google/GitHub/etc.
+2. Install Tailscale on the iPhone (App Store) and sign in with **the same identity** — that's what puts both devices in one tailnet.
+3. If you set up the server **before** installing Tailscale, re-run `./setup.sh` (or `.\setup.ps1` on Windows) — the mkcert cert regenerates to include the Tailscale FQDN as a SAN. If Tailscale was installed at setup time, the FQDN is included automatically.
+4. Start the server. A new menu item **"QR Code (Tailscale)"** appears (auto-hidden if Tailscale isn't detected). Scan it from the PWA to pair.
+5. In the PWA header dropdown you'll now have two entries: one with a green **LAN** badge (uses `.local`) and one with an accent **TAILSCALE** badge (uses the Tailscale FQDN). Pick whichever fits where you are — both coexist permanently.
+
+Optional override: set `TAILSCALE_HOSTNAME=<host>.tail-XXXX.ts.net` in `.env` to force a specific hostname (e.g. when using Headscale with a custom control domain). If unset, the server auto-detects it via `tailscale status --json` at startup.
+
+> **Known caveat.** After a rapid LAN→cellular transition, the PWA can briefly latch "offline" for ~90 s while a stuck TLS handshake times out on the Werkzeug dev server. Kill and relaunch the server to clear it immediately, or wait. See `CODEBASE_MAP.md` → *Known Open Items* → "SSL-handshake-blocks-accept" for the full analysis. The permanent fix is migrating to Hypercorn, tracked as future work.
+
 ## Prerequisites
 
 ### Python Implementation
@@ -394,6 +408,7 @@ The Rust server will:
 
 Most recent first. Fuller module-level history lives in `CODEBASE_MAP.md`; the cross-repo feature list is in `../FEATURE_BACKLOG.md`.
 
+- **2026-07-19 — Tailscale remote access (LAN + internet coexist).** New rumps menu item **"QR Code (Tailscale)"** generates a pairing QR whose `serviceUrl` uses the Mac's Tailscale FQDN (auto-detected via `tailscale status --json`; hidden when Tailscale isn't installed). The web app's device switcher gains a `LAN` / `TAILSCALE` row badge; both entries coexist so you switch based on where you are. `setup.sh` (macOS) and `setup.ps1` (Windows) auto-include the FQDN in the mkcert SAN when Tailscale is on PATH at setup time. Works from any Wi-Fi or cellular via Tailscale's private WireGuard mesh — no port forwarding, nothing publicly reachable. Requires the **standalone Tailscale installer** (not the Mac App Store version, which sandboxes the CLI). Diagnosed a preexisting Werkzeug dev-server SSL-blocks-accept quirk that Tailscale exposes on rapid LAN→cellular transitions — documented in `CODEBASE_MAP.md` under Known Open Items; permanent fix is Hypercorn migration.
 - **2026-07-09 — Fixed choppy/breaking phone→Mac "Live Mic" audio.** The old path sent one HTTP POST per 23 ms chunk (~43/sec); with no HTTP keep-alive every chunk paid a fresh TCP+TLS handshake, so audio arrived with 40–190 ms jitter and broke constantly. Replaced with a single persistent WebSocket **`/alerts/audio_ws`** (authed, jitter-buffered PyAudio playback) and switched the client to send its real 48 kHz sample rate. The old `/alerts/stream/audio` endpoint is kept in-code but no longer registered.
 - **2026-07-09 — Listen to the Mac's microphone live on the phone.** New authed WebSocket **`/media/mic_ws`** on the main server (`?token=` query auth, like `/system/mouse_ws`) captures the built-in mic via PyAudio and streams Int16 mono PCM to the web app, which plays it through Web Audio. It's on the main TLS server (8080), not the 9092 BlackHole audio server, because the HTTPS web app can't open a plain `ws://` (mixed content). First use triggers a macOS Microphone-permission prompt for the server process. In the web app: a **floating audio window** (drag/minimize, live level meter, volume, timer) under Stream → "Listen to Mac".
 - **2026-07-09 — Floating stream windows (web app).** Screen/camera streams are now movable, resizable, minimizable in-app picture-in-picture windows, and screen + camera can be open at once — client-only, no server change.
