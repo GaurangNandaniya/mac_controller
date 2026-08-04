@@ -61,8 +61,16 @@ def qr_auth_page():
     # (a doubled ".local.local" name has no mDNS responder and forces a slow
     # multi-second resolution timeout on each cold lookup).
     override = request.args.get("host", "").strip()
+    # SERVER_HOSTNAME env override (set in .env). Fixed pin for machines whose
+    # DHCP-supplied hostname changes per network — e.g. an AWS VPN sets the
+    # host to `ip-x-x-x-x.eu-west-1.compute.internal`, which is multi-label
+    # under `.local` and can't be resolved via mDNS. Set SERVER_HOSTNAME to the
+    # name macOS advertises via Bonjour (see `scutil --get LocalHostName`).
+    env_override = (os.getenv("SERVER_HOSTNAME") or "").strip()
     if override and _valid_host(override):
         service_name = override
+    elif env_override and _valid_host(env_override):
+        service_name = env_override if env_override.endswith(".local") else f"{env_override}.local"
     else:
         hostname = socket.gethostname()
         service_name = hostname if hostname.endswith(".local") else f"{hostname}.local"
