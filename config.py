@@ -16,6 +16,12 @@ WEBRTC_FPS = 30
 
 # System Audio Share configuration (BlackHole loopback)
 AUDIO_SHARE_PORT = 9092
+
+# macOS Screen Sharing (screensharingd) speaks RFB/VNC here. Loopback only: the
+# /system/vnc_ws bridge runs on this machine, so the port never needs to be
+# reachable from the network.
+VNC_HOST = "127.0.0.1"
+VNC_PORT = 5900
 AUDIO_SAMPLE_RATE = 48000
 AUDIO_CHANNELS = 2
 AUDIO_CHUNK_SIZE = 1024  # ~21ms buffering at 48kHz (lower lag; was 2048 ≈ 43ms)
