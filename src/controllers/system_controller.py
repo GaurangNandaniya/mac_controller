@@ -58,6 +58,31 @@ def lock_screen():
     except Exception as e:
         return jsonify({"status": "error", "error": str(e)}), 500
 
+@system_bp.route('/wake', methods=['POST'])
+def wake_display():
+    """Wake a sleeping display. Does not unlock -- a locked Mac stays locked."""
+    try:
+        driver.wake_display()
+        logger.info("Display wake successful")
+        return jsonify({"status": "success"})
+    except NotImplementedError as e:
+        return jsonify({"status": "error", "error": str(e)}), 501
+    except Exception as e:
+        logger.error(f"Error waking display: {str(e)}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+
+@system_bp.route('/screen-state', methods=['POST'])
+def screen_state():
+    """Report whether the session is locked. `locked` is null when the server
+    can't determine it (no GUI session, or unsupported platform)."""
+    try:
+        return jsonify({"status": "success", "locked": driver.is_screen_locked()})
+    except Exception as e:
+        logger.error(f"Error reading screen state: {str(e)}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+
 @system_bp.route('/brightness-up', methods=['POST'])
 def brightness_up():
     try:

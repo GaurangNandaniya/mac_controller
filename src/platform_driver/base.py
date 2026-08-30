@@ -78,8 +78,19 @@ class PlatformDriver(ABC):
         """Return kwargs dictionary for `p.open(...)` to capture system output audio (e.g. BlackHole device index on Mac or WASAPI loopback on Win)."""
         pass
 
+    # --- Display wake / lock state ---
+    # Non-abstract on purpose (same idiom as capabilities() below): drivers that
+    # support these override them, and platforms that don't keep working untouched.
+    def wake_display(self) -> None:
+        """Wake a sleeping display without unlocking the session."""
+        raise NotImplementedError("wake_display() is not supported on this platform")
+
+    def is_screen_locked(self) -> Optional[bool]:
+        """True/False if the lock state is known, None if it can't be determined."""
+        return None
+
     # --- Capabilities (client uses these to adapt its UI) ---
     def capabilities(self) -> Dict[str, bool]:
         """Feature-support flags the client reads to show/hide OS-specific controls.
         Base defaults are conservative (off); drivers override what they support."""
-        return {"keyboard_backlight": False}
+        return {"keyboard_backlight": False, "display_wake": False}

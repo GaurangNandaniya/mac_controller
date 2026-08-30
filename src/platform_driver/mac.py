@@ -67,6 +67,28 @@ class MacDriver(PlatformDriver):
     def sleep_system(self) -> None:
         subprocess.run(["pmset", "sleepnow"], capture_output=True, check=True)
 
+    def wake_display(self) -> None:
+        # `caffeinate -u` asserts "user is active", which wakes a sleeping display.
+        # This does NOT unlock the session -- a locked Mac stays locked, it just
+        # lights the panel back up. -t 1 holds the assertion for one second, which
+        # is enough to trigger the wake, then caffeinate exits on its own.
+        subprocess.run(["caffeinate", "-u", "-t", "1"], capture_output=True, check=True)
+        logger.info("macOS display wake requested")
+
+    def is_screen_locked(self) -> Optional[bool]:
+        # Quartz is one of the three pinned pyobjc frameworks, imported lazily to
+        # match set_keyboard_brightness()'s pattern and keep import cost off startup.
+        try:
+            from Quartz import CGSessionCopyCurrentDictionary
+            session = CGSessionCopyCurrentDictionary()
+            if not session:
+                # No GUI session attached (e.g. run from ssh) -- state is unknowable.
+                return None
+            return bool(session.get("CGSSessionScreenIsLocked", 0))
+        except Exception as e:
+            logger.error(f"Error reading screen lock state on macOS: {e}")
+            return None
+
     def get_battery_percentage(self) -> Optional[int]:
         try:
             output = subprocess.check_output(["pmset", "-g", "batt"], text=True)
@@ -198,7 +220,7 @@ class MacDriver(PlatformDriver):
 
     def capabilities(self) -> Dict[str, Any]:
         # Apple Silicon keyboard backlight works via CoreBrightness.
-        return {"keyboard_backlight": True}
+        return {"keyboard_backlight": True, "display_wake": True}
 
     def get_loopback_pyaudio_params(self, pyaudio_instance: Any) -> Dict[str, Any]:
         """Find the BlackHole virtual audio device index on macOS."""
